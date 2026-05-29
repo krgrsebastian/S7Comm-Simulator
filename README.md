@@ -31,7 +31,20 @@ each type:
 To add/change points, edit the offsets and the simulation loop in
 `simulator.py`, then keep the `addresses:` list in `benthos-test.yaml` in sync.
 
-## Run
+## Run from Docker Hub
+
+A prebuilt multi-arch image (`linux/amd64` + `linux/arm64`) is published at
+[`skumh/s7comm-simulator`](https://hub.docker.com/r/skumh/s7comm-simulator):
+
+```bash
+docker run --rm -p 1102:102 skumh/s7comm-simulator:0.1
+```
+
+This maps host **`1102` → container `102`** (so you don't need root for a low
+port on the host); point clients at `127.0.0.1:1102`. To use the canonical S7
+port instead, run with `-p 102:102`. Tags: `0.1` (pinned) and `latest`.
+
+## Run from source
 
 ```bash
 docker compose up -d --build
