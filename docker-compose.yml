@@ -1,0 +1,12 @@
+services:
+  s7-simulator:
+    build: .
+    container_name: s7-simulator
+    # Map host 1102 -> container 102 to avoid needing root for a low port on
+    # the host. Point benthos at <host>:1102. If you prefer the real S7 port,
+    # change to "102:102".
+    ports:
+      - "1102:102"
+    environment:
+      S7_UPDATE_INTERVAL: "1.0"
+    restart: unless-stopped

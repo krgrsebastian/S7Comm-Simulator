@@ -1,0 +1,37 @@
+# Minimal benthos-umh config to read the S7 simulator.
+#
+# Run (after `docker compose up -d` in this folder):
+#   benthos-umh run -c benthos-test.yaml
+#
+# The simulator maps host port 1102 -> container 102, so use 127.0.0.1:1102.
+input:
+  s7comm:
+    tcpDevice: "127.0.0.1:1102"
+    rack: 0
+    slot: 1
+    # The pure-Python Snap7 server does not answer the CPU-info (SZL) request,
+    # so disable it to avoid a startup warning.
+    disableCPUInfo: true
+    addresses:
+      - "DB1.I0"      # mode:        INT   0=auto 1=manual 2=setup
+      - "DB1.R4"      # temperature: REAL  deg C
+      - "DB1.DI8"     # rpm:         DINT
+      - "DB1.X12.0"   # error:       BOOL
+
+pipeline:
+  processors:
+    # Map the raw S7 address to a friendly tag name so the output is readable.
+    - mapping: |
+        let names = {
+          "DB1.I0":    "mode",
+          "DB1.R4":    "temperature",
+          "DB1.DI8":   "rpm",
+          "DB1.X12.0": "error"
+        }
+        meta tag = $names.get(metadata("s7_address")).or(metadata("s7_address"))
+
+output:
+  stdout:
+    codec: lines
+  # In UMH Core you would instead use:
+  #   tag_processor (set location_path / data_contract / tag_name) -> uns: {}

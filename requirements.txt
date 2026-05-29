@@ -1,0 +1,5 @@
+# Pin 1.3: it wraps the native libsnap7 server (gos7-compatible).
+# python-snap7 >= 3.0 uses a pure-Python server that gos7 can't handshake with.
+python-snap7==1.3
+# python-snap7 1.3 imports pkg_resources, removed from setuptools >= 81.
+setuptools<81
