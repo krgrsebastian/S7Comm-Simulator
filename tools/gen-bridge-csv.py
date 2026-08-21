@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Generate the bridge tag CSV for each machine profile.
 
-The CSV is derived from datamodels.yaml, and every address is cross-checked
-against `simulator.py --addresses` for that profile. If the model and the PLC
-layout ever disagree, this fails loudly instead of emitting a CSV that imports
-cleanly and then reads the wrong bytes.
+The CSV is derived from datamodels.yaml. Two things are checked, both of which
+have bitten this repo already:
+
+  1. Every address must exist in `simulator.py --addresses` for that profile,
+     so the model cannot drift from the PLC layout.
+  2. Every field's declared _payloadshape must match the payload shape implied
+     by its S7 type. benthos-umh's converter decides that, not the model: an X
+     (bit) address arrives as a Go bool, so declaring it timeseries-number
+     makes the uns output reject every message with "datatype mismatch".
 
     python tools/gen-bridge-csv.py            # writes bridge-<profile>.csv
     python tools/gen-bridge-csv.py --check    # verify only, write nothing
@@ -32,6 +37,22 @@ HEADER = "Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name"
 # field name -> S7 address, taken from the trailing comment on each field line
 ADDR_RE = re.compile(r"^\s+([a-z0-9_]+):\s+#\s*(DB\d+\.[A-Z]+[0-9.]*)")
 
+# The payload shape a field must declare, given its S7 type. Straight from
+# benthos-umh/s7comm_plugin/type_conversions.go: determineConversion returns a
+# Go bool for X, a string for C and S, and a numeric type for the rest.
+SHAPE_FOR_S7_TYPE = {
+    "X": "timeseries-boolean",
+    "C": "timeseries-string",
+    "S": "timeseries-string",
+    "B": "timeseries-number",
+    "W": "timeseries-number",
+    "I": "timeseries-number",
+    "DW": "timeseries-number",
+    "DI": "timeseries-number",
+    "R": "timeseries-number",
+}
+S7_TYPE_RE = re.compile(r"^DB\d+\.([A-Z]+)")
+
 
 def addresses_by_field(model_block: str) -> dict:
     out = {}
@@ -54,12 +75,12 @@ def model_blocks(text: str) -> dict:
 
 
 def leaf_paths(structure, prefix=""):
-    """Yield (virtual_path, tag_name) for every leaf, in declaration order."""
+    """Yield (virtual_path, tag_name, declared_shape) for every leaf."""
     for key, value in structure.items():
         if not isinstance(value, dict):
             continue
         if "_payloadshape" in value:
-            yield prefix, key
+            yield prefix, key, value["_payloadshape"]
         else:
             yield from leaf_paths(value, key)
 
@@ -99,16 +120,30 @@ def main() -> int:
         structure = versions[version]["structure"]
         addr_of = addresses_by_field(blocks[name])
 
-        rows, missing = [], []
-        for vpath, tag in leaf_paths(structure):
+        rows, missing, wrong_shape = [], [], []
+        for vpath, tag, shape in leaf_paths(structure):
             addr = addr_of.get(tag)
             if addr is None:
                 missing.append(tag)
                 continue
+            m = S7_TYPE_RE.match(addr)
+            s7type = m.group(1) if m else None
+            expected = SHAPE_FOR_S7_TYPE.get(s7type)
+            if expected is None:
+                wrong_shape.append("%s (%s): unknown S7 type %r" % (tag, addr, s7type))
+            elif shape != expected:
+                wrong_shape.append(
+                    "%s (%s is S7 %s): declared %s, must be %s"
+                    % (tag, addr, s7type, shape, expected)
+                )
             rows.append("%s,,_%s_%s,%s,%s" % (addr, name, version, vpath, tag))
 
         if missing:
             failures.append("%s: no address comment for %s" % (name, missing))
+            continue
+        if wrong_shape:
+            failures.append("%s: payload shape does not match the S7 type — %s"
+                            % (name, "; ".join(wrong_shape)))
             continue
 
         from_model = {r.split(",")[0] for r in rows}

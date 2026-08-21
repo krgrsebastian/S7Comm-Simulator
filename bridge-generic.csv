@@ -1,11 +1,11 @@
 Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name
-DB1.I0,,_generic_v3,,mode
-DB1.I2,,_generic_v3,,state
-DB1.X12.0,,_generic_v3,,fault_active
-DB1.X12.1,,_generic_v3,,warning_active
-DB1.I24,,_generic_v3,,fault_code
-DB1.DI16,,_generic_v3,,good_count
-DB1.DI20,,_generic_v3,,scrap_count
-DB1.DI28,,_generic_v3,,part_count
-DB1.R4,,_generic_v3,,temp_c
-DB1.DI8,,_generic_v3,,speed_rpm
+DB1.I0,,_generic_v4,,mode
+DB1.I2,,_generic_v4,,state
+DB1.X12.0,,_generic_v4,,fault_active
+DB1.X12.1,,_generic_v4,,warning_active
+DB1.I24,,_generic_v4,,fault_code
+DB1.DI16,,_generic_v4,,good_count
+DB1.DI20,,_generic_v4,,scrap_count
+DB1.DI28,,_generic_v4,,part_count
+DB1.R4,,_generic_v4,,temp_c
+DB1.DI8,,_generic_v4,,speed_rpm

@@ -221,9 +221,9 @@ notice.
 ## Data models
 
 `datamodels.yaml` holds a UMH data model per machine type — `generic`, `cnc`,
-`oven`, `washing`, all at **v3** — so the data contracts are `_generic_v3`,
-`_cnc_v3` and so on. Paste the whole `dataModels:` block into a umh-core
-`config.yaml`. Field counts match the address counts exactly: 10 / 17 / 16 / 16.
+`oven`, `washing`, all at **v4** — so the data contracts are `_generic_v4`,
+`_cnc_v4` and so on. Paste **both** top-level blocks (`payloadShapes:` and
+`dataModels:`) into a umh-core `config.yaml`. Field counts match the address counts exactly: 10 / 17 / 16 / 16.
 
 **A flat core, then grouped process values.** These eight fields are flat and
 identical in every model, so one query spans every asset whatever the machine
@@ -256,16 +256,37 @@ messages with `datatype mismatch … want timeseries-string, got
 timeseries-number`. Bumping the version makes the old subjects unexpected, and
 the same reconcile deletes them for you.
 
-Version history: `v1` flat with string enums, `v2` grouped with string enums
-(unusable from a plain CSV bridge), `v3` grouped and fully numeric.
+Version history: `v1` flat with string enums; `v2` grouped with string enums
+(unusable from a plain CSV bridge); `v3` grouped and numeric, but with the two
+bit addresses wrongly declared as numbers; `v4` with those as
+`timeseries-boolean`.
 
-**Everything is a number, including `mode` and `state`.** The PLC serves both as
-INT codes. Modelling them as `timeseries-string` would fail schema validation on
-every message (the string subject requires `value: string`), and a plain
-address-to-tag bridge has nowhere to translate. Render the names in Grafana with
-value mappings; the code tables are in the file header. Booleans are 0/1 for the
-same reason — `timeseries-boolean` is not a umh-core built-in. Net result: one
-subject per model and no `payloadShapes:` section to declare.
+**The S7 type dictates the payload shape — it is not a modelling choice.**
+benthos-umh's converter (`s7comm_plugin/type_conversions.go`,
+`determineConversion`) decides what arrives on the wire:
+
+| S7 type | Go type | payload shape |
+|---|---|---|
+| `X` (bit) | `bool` | `timeseries-boolean` |
+| `I`, `DI`, `W`, `DW`, `B` | int / uint | `timeseries-number` |
+| `R` | `float32` | `timeseries-number` |
+| `C`, `S` | `string` | `timeseries-string` |
+
+Declare anything else and the `uns` output rejects every message for that field
+with `datatype mismatch … want X, got Y`. That is why `mode` and `state` are
+numbers — the PLC serves INT codes, and a plain address-to-tag bridge has
+nowhere to translate them (render the names in Grafana with value mappings; the
+code tables are in the model file's header). And it is why `fault_active` and
+`warning_active` are `timeseries-boolean`: they are bit addresses.
+
+`timeseries-boolean` is declared explicitly in the `payloadShapes:` block.
+Some umh-core versions inject only `timeseries-number` and `timeseries-string`
+as defaults (`pkg/datamodel/validator.go`, `ensureDefaultPayloadShapes`), and
+the injector never overrides a shape that is already defined — so declaring it
+works on every version.
+
+`tools/gen-bridge-csv.py` enforces the whole table above, so a field can no
+longer be declared with a shape its address cannot produce.
 
 ## Bridge tag CSVs
 
@@ -273,9 +294,9 @@ subject per model and no `payloadShapes:` section to declare.
 
 ```
 Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name
-DB1.DI8,,_cnc_v3,spindle,speed_rpm
-DB1.R32,,_cnc_v3,measurement,diameter_mm
-DB1.DI16,,_cnc_v3,,good_count
+DB1.DI8,,_cnc_v4,spindle,speed_rpm
+DB1.R32,,_cnc_v4,measurement,diameter_mm
+DB1.X12.0,,_cnc_v4,,fault_active
 ```
 
 They are generated, not hand-written:
@@ -285,10 +306,16 @@ python tools/gen-bridge-csv.py          # regenerate all four
 python tools/gen-bridge-csv.py --check  # verify, write nothing
 ```
 
-The generator derives every row from `datamodels.yaml` and cross-checks each
-address against `simulator.py --addresses` for that profile, so a model that
-drifts from the PLC layout fails loudly instead of producing a CSV that imports
-cleanly and reads the wrong bytes.
+The generator derives every row from `datamodels.yaml` and checks two things,
+both of which have bitten this repo already:
+
+1. Every address exists in `simulator.py --addresses` for that profile, so the
+   model cannot drift from the PLC layout.
+2. Every field's `_payloadshape` matches the shape its S7 type actually
+   produces.
+
+Either mismatch fails loudly instead of producing a CSV that imports cleanly
+and then breaks at runtime.
 
 ## Environment variables
 

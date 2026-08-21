@@ -35,9 +35,13 @@
 #          60 filling    61 washing    62 rinsing     63 drying     64 draining
 #          70 tool_change
 #
-# Booleans are 0/1 numbers too: timeseries-boolean is NOT a umh-core built-in
-# (pkg/datamodel/validator.go injects only number and string), so using it
-# would force a payloadShapes: block.
+# The payload shape of every field is dictated by the S7 type, not by taste:
+# benthos-umh's s7comm converter (s7comm_plugin/type_conversions.go) returns a
+# Go bool for an X (bit) address, int16/int32/float32 for I/DI/R, and a string
+# for C/S. So the two bit addresses MUST be timeseries-boolean; declaring them
+# as numbers makes the uns output reject every message with
+# "datatype mismatch ... want timeseries-number, got timeseries-boolean".
+# tools/gen-bridge-csv.py enforces this mapping.
 #
 # The S7 address each field comes from is in the comment beside it. Field
 # counts match the address counts exactly: 10 / 17 / 16 / 16.
@@ -46,7 +50,9 @@
 #   v1  flat, mode/state as strings
 #   v2  grouped, mode/state as strings  -> unusable from a plain CSV bridge:
 #       the PLC serves INT codes and the string subject requires value: string
-#   v3  grouped, everything numeric     <- this file
+#   v3  grouped, numeric — but declared the two bit addresses as numbers, and
+#       the s7comm plugin sends them as Go bools, so they were rejected
+#   v4  grouped, with the two bit addresses as timeseries-boolean  <- this file
 #
 # Each of those is a new version rather than an edit, and that is not
 # bookkeeping. umh-core's registry reconcile (pkg/service/redpanda/
@@ -55,6 +61,22 @@
 # is. Editing a version in place therefore leaves the old schema registered and
 # the uns output keeps rejecting messages. Bumping the version makes the old
 # subjects unexpected, so the same reconcile deletes them for you.
+
+# ============================================================================
+# timeseries-boolean is declared explicitly. umh-core injects only
+# timeseries-number and timeseries-string as defaults in some versions
+# (pkg/datamodel/validator.go, ensureDefaultPayloadShapes), and the injector
+# never overrides a shape that is already defined — so declaring it here works
+# on every version. Paste this block along with dataModels:.
+# ============================================================================
+payloadShapes:
+  timeseries-boolean:
+    description: "Boolean time-series value, same envelope as the built-in shapes"
+    fields:
+      timestamp_ms:
+        _type: number
+      value:
+        _type: boolean
 
 dataModels:
 
@@ -65,16 +87,16 @@ dataModels:
   - name: generic
     description: "S7 simulator, generic machine — flat core only (10 tags)"
     version:
-      v3:
+      v4:
         structure:
           mode:                      # DB1.I0    0 auto | 1 manual | 2 setup
             _payloadshape: timeseries-number
           state:                     # DB1.I2    see the code table above
             _payloadshape: timeseries-number
-          fault_active:              # DB1.X12.0 -> 0 | 1
-            _payloadshape: timeseries-number
-          warning_active:            # DB1.X12.1 -> 0 | 1
-            _payloadshape: timeseries-number
+          fault_active:              # DB1.X12.0 BOOL
+            _payloadshape: timeseries-boolean
+          warning_active:            # DB1.X12.1 BOOL
+            _payloadshape: timeseries-boolean
           fault_code:                # DB1.I24   0 = none
             _payloadshape: timeseries-number
           good_count:                # DB1.DI16  monotonic
@@ -99,7 +121,7 @@ dataModels:
   - name: cnc
     description: "S7 simulator, milling centre — flat core + spindle/feed/tool/coolant/measurement (17 tags)"
     version:
-      v3:
+      v4:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
@@ -107,9 +129,9 @@ dataModels:
           state:                     # DB1.I2    running | tool_change | fault | ...
             _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0
-            _payloadshape: timeseries-number
+            _payloadshape: timeseries-boolean
           warning_active:            # DB1.X12.1
-            _payloadshape: timeseries-number
+            _payloadshape: timeseries-boolean
           fault_code:                # DB1.I24   101 tool break | 102 coolant low | 103 spindle overload
             _payloadshape: timeseries-number
           good_count:                # DB1.DI16
@@ -151,7 +173,7 @@ dataModels:
   - name: oven
     description: "S7 simulator, hardening furnace — flat core + chamber/atmosphere/batch (16 tags)"
     version:
-      v3:
+      v4:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
@@ -159,9 +181,9 @@ dataModels:
           state:                     # DB1.I2    charging | heating | soaking | quenching | discharging
             _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0
-            _payloadshape: timeseries-number
+            _payloadshape: timeseries-boolean
           warning_active:            # DB1.X12.1
-            _payloadshape: timeseries-number
+            _payloadshape: timeseries-boolean
           fault_code:                # DB1.I24   201 over-temperature | 202 door interlock | 203 atmosphere
             _payloadshape: timeseries-number
           good_count:                # DB1.DI16  jumps by the whole charge
@@ -199,7 +221,7 @@ dataModels:
   - name: washing
     description: "S7 simulator, basket washer — flat core + bath/pump/basket (16 tags)"
     version:
-      v3:
+      v4:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
@@ -207,9 +229,9 @@ dataModels:
           state:                     # DB1.I2    filling | washing | rinsing | drying | draining
             _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0
-            _payloadshape: timeseries-number
+            _payloadshape: timeseries-boolean
           warning_active:            # DB1.X12.1
-            _payloadshape: timeseries-number
+            _payloadshape: timeseries-boolean
           fault_code:                # DB1.I24   301 detergent low | 302 filter clogged | 303 pump pressure low
             _payloadshape: timeseries-number
           good_count:                # DB1.DI16  jumps by the basket
