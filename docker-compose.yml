@@ -8,9 +8,12 @@ services:
     ports:
       - "1102:102"
     environment:
+      # generic | cnc | oven | washing. The profile carries its own sensible
+      # process constants, so this is normally the only thing worth setting.
+      S7_MACHINE_TYPE: "generic"
       S7_UPDATE_INTERVAL: "1.0"
-      # Seconds of auto-mode runtime per part. 60 => 1 part/minute.
-      S7_CYCLE_TIME: "60"
-      # Other knobs (see README): S7_SCRAP_RATE (default 0.05),
-      # S7_COUNTER_MAX (default 2147483647 — lower it to test counter rollover).
+      # Seconds per machine cycle. Leave unset to take the profile's default
+      # (generic 60, cnc 45, oven 300, washing 120); turn it down to
+      # fast-forward the whole simulation, alarms included.
+      # S7_CYCLE_TIME: "60"
     restart: unless-stopped

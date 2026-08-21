@@ -3,6 +3,13 @@
 # Run (after `docker compose up -d` in this folder):
 #   benthos-umh run -c benthos-test.yaml
 #
+# These are the ten **core** addresses, which mean the same thing on every
+# machine profile — so this one config reads a generic machine, a cnc, an oven
+# or a washing station without being changed.
+#
+# For a profile's own process parameters, append its block:
+#   docker compose exec s7-simulator python simulator.py --addresses
+#
 # The simulator maps host port 1102 -> container 102, so use 127.0.0.1:1102.
 input:
   s7comm:
@@ -13,12 +20,16 @@ input:
     # so disable it to avoid a startup warning.
     disableCPUInfo: true
     addresses:
-      - "DB1.I0"      # mode:        INT   0=auto 1=manual 2=setup
-      - "DB1.R4"      # temperature: REAL  deg C
-      - "DB1.DI8"     # rpm:         DINT
-      - "DB1.X12.0"   # error:       BOOL
-      - "DB1.DI16"    # good_parts:  DINT  monotonic counter
-      - "DB1.DI20"    # scrap_parts: DINT  monotonic counter
+      - "DB1.I0"    # mode         0=auto 1=manual 2=setup
+      - "DB1.I2"    # state        10=running 30=fault 51=heating ... (see README)
+      - "DB1.R4"    # temperature  deg C
+      - "DB1.DI8"   # speed        rpm
+      - "DB1.X12.0" # error        a stopping fault is active
+      - "DB1.X12.1" # warning      a non-stopping alarm is active
+      - "DB1.DI16"  # good_parts   counts up, wraps at S7_COUNTER_MAX
+      - "DB1.DI20"  # scrap_parts  counts up
+      - "DB1.I24"   # fault_code   0 = none
+      - "DB1.DI28"  # part_id      total parts; changes only when a part completes
 
 pipeline:
   processors:
@@ -26,11 +37,15 @@ pipeline:
     - mapping: |
         let names = {
           "DB1.I0":    "mode",
+          "DB1.I2":    "state",
           "DB1.R4":    "temperature",
-          "DB1.DI8":   "rpm",
+          "DB1.DI8":   "speed",
           "DB1.X12.0": "error",
+          "DB1.X12.1": "warning",
           "DB1.DI16":  "good_parts",
-          "DB1.DI20":  "scrap_parts"
+          "DB1.DI20":  "scrap_parts",
+          "DB1.I24":   "fault_code",
+          "DB1.DI28":  "part_id"
         }
         meta tag = $names.get(metadata("s7_address")).or(metadata("s7_address"))
 

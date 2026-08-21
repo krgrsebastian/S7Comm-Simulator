@@ -1,0 +1,39 @@
+# A whole line in one command: four machines, four ports.
+#
+#   docker compose -f docker-compose.line.yml up -d --build
+#   docker compose -f docker-compose.line.yml logs -f s7-cnc
+#
+# Every machine publishes the same ten core addresses, so one benthos config
+# reads any of them — only the port changes.
+services:
+  s7-generic:
+    build: .
+    container_name: s7-generic
+    ports: ["1102:102"]
+    environment:
+      S7_MACHINE_TYPE: "generic"
+    restart: unless-stopped
+
+  s7-cnc:
+    build: .
+    container_name: s7-cnc
+    ports: ["1103:102"]
+    environment:
+      S7_MACHINE_TYPE: "cnc"
+    restart: unless-stopped
+
+  s7-oven:
+    build: .
+    container_name: s7-oven
+    ports: ["1104:102"]
+    environment:
+      S7_MACHINE_TYPE: "oven"
+    restart: unless-stopped
+
+  s7-washing:
+    build: .
+    container_name: s7-washing
+    ports: ["1105:102"]
+    environment:
+      S7_MACHINE_TYPE: "washing"
+    restart: unless-stopped
