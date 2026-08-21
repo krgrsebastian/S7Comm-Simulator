@@ -218,6 +218,23 @@ worth it only if the write volume actually hurts: at one poll a second a single
 machine produces a few hundred thousand rows a day, which Postgres will not
 notice.
 
+## Data models
+
+`datamodels.yaml` holds a UMH data model per machine type (`s7sim-generic`,
+`s7sim-cnc`, `s7sim-oven`, `s7sim-washing`) — paste the whole `dataModels:`
+block into a umh-core `config.yaml`. Field counts match the address counts
+exactly: 10 / 17 / 16 / 16.
+
+It uses only the two built-in payload shapes, so there is no `payloadShapes:`
+section to add. `mode` and `state` are modelled as `timeseries-string` because a
+name is what you want on a timeline — the simulator publishes them as INT codes,
+and the code-to-name tables are in the file's header comments. Booleans
+(`fault_active`, `warning_active`) are 0/1 numbers, which keeps the fragment on
+built-ins only.
+
+Each field carries the S7 address it comes from in a comment, so the bridge
+mapping is a lookup table rather than a puzzle.
+
 ## Environment variables
 
 Seven, and only the first is new in v0.3. Everything about a machine's process
