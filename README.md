@@ -225,15 +225,48 @@ notice.
 block into a umh-core `config.yaml`. Field counts match the address counts
 exactly: 10 / 17 / 16 / 16.
 
-It uses only the two built-in payload shapes, so there is no `payloadShapes:`
-section to add. `mode` and `state` are modelled as `timeseries-string` because a
-name is what you want on a timeline — the simulator publishes them as INT codes,
-and the code-to-name tables are in the file's header comments. Booleans
-(`fault_active`, `warning_active`) are 0/1 numbers, which keeps the fragment on
-built-ins only.
+**A flat core, then grouped process values.** These eight fields are flat and
+identical in every model, so one query spans every asset whatever the machine
+type:
 
-Each field carries the S7 address it comes from in a comment, so the bridge
-mapping is a lookup table rather than a puzzle.
+```
+mode  state  fault_active  warning_active  fault_code
+good_count  scrap_count  part_count
+```
+
+Everything machine-specific is grouped, and a group becomes the tag's
+**virtual_path**:
+
+| machine | groups |
+|---|---|
+| `cnc` | `spindle`, `feed`, `tool`, `coolant`, `measurement` |
+| `oven` | `chamber`, `atmosphere`, `batch` |
+| `washing` | `bath`, `pump`, `basket` |
+| `generic` | none — all flat |
+
+So `spindle: { speed_rpm: … }` lands as virtual_path `spindle`, tag_name
+`speed_rpm`, topic suffix `…/spindle/speed_rpm`. The bridge mapping for the cnc:
+
+| S7 address | virtual_path | tag_name |
+|---|---|---|
+| `DB1.I0` / `DB1.I2` | — | `mode` / `state` |
+| `DB1.X12.0` / `DB1.X12.1` / `DB1.I24` | — | `fault_active` / `warning_active` / `fault_code` |
+| `DB1.DI16` / `DB1.DI20` / `DB1.DI28` | — | `good_count` / `scrap_count` / `part_count` |
+| `DB1.DI8` / `DB1.R48` / `DB1.R4` | `spindle` | `speed_rpm` / `load_pct` / `temp_c` |
+| `DB1.R52` | `feed` | `rate_mm_min` |
+| `DB1.I44` / `DB1.I46` | `tool` | `number` / `life_pct` |
+| `DB1.R36` / `DB1.R40` | `coolant` | `pressure_bar` / `level_pct` |
+| `DB1.R32` | `measurement` | `diameter_mm` |
+
+The oven and washer follow the same pattern; every field carries its S7 address
+in a comment in `datamodels.yaml`.
+
+Only the two built-in payload shapes are used, so there is no `payloadShapes:`
+section to add. `mode` and `state` are `timeseries-string` because a name is
+what you want on a timeline — the simulator publishes them as INT codes, and the
+code-to-name tables are in the file's header. Booleans are 0/1 numbers, since
+`timeseries-boolean` is *not* a umh-core built-in and would otherwise force a
+`payloadShapes:` block.
 
 ## Environment variables
 

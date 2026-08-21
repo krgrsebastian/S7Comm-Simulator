@@ -5,178 +5,217 @@
 # (timeseries-number, timeseries-string) are used, so there is no
 # `payloadShapes:` section to add and nothing else to declare.
 #
-# Enum fields (`mode`, `state`) are modelled as strings because a name is what
-# you want on a timeline; the simulator publishes them as INT codes, so the
-# bridge maps code -> name using the tables below. Booleans are modelled as
-# 0/1 numbers, which keeps the fragment on built-in shapes only.
+# ---------------------------------------------------------------------------
+# Shape: a flat core, then grouped process values
+# ---------------------------------------------------------------------------
+# The first eight fields are FLAT and IDENTICAL in every model, so one query
+# works across every asset regardless of machine type:
 #
+#   mode  state  fault_active  warning_active  fault_code
+#   good_count  scrap_count  part_count
+#
+# Everything machine-specific is grouped (spindle, coolant, tool, chamber,
+# bath, pump, batch, ...). A group becomes the tag's **virtual_path**, so
+# `spindle: { speed_rpm: ... }` lands as virtual_path `spindle`, tag_name
+# `speed_rpm`, i.e. topic suffix `.../spindle/speed_rpm`. Group names are the
+# only thing to set in the bridge beyond the tag name.
+#
+# ---------------------------------------------------------------------------
+# Enum codes (mode and state are modelled as strings — a name is what you want
+# on a timeline; the simulator publishes INT codes, so the bridge maps them)
+# ---------------------------------------------------------------------------
 #   mode   0 auto        1 manual      2 setup
 #   state  0 idle        10 running    20 setup       30 fault      40 stopped
 #          50 charging   51 heating    52 soaking     53 quenching  54 discharging
 #          60 filling    61 washing    62 rinsing     63 drying     64 draining
 #          70 tool_change
 #
-# The address each field comes from is in the comments. The first ten fields of
-# every model are the simulator's core block, at identical offsets on all four
-# machines, so one s7comm input reads any of them.
+# Booleans are 0/1 numbers: timeseries-boolean is NOT a umh-core built-in
+# (pkg/datamodel/validator.go injects only number and string), so using it
+# would force a payloadShapes: block.
+#
+# The S7 address each field comes from is in the comment beside it. Field
+# counts match the address counts exactly: 10 / 17 / 16 / 16.
 
 dataModels:
 
   # ==========================================================================
-  # generic — the plain machine: one part per cycle, no alarms
+  # generic — the plain machine: one part per cycle, no alarms.
+  # Deliberately all flat: it has no subsystems worth grouping.
   # ==========================================================================
   - name: s7sim-generic
-    description: "S7 simulator, generic machine — core block only (10 tags)"
+    description: "S7 simulator, generic machine — flat core only (10 tags)"
     version:
       v1:
         structure:
-          mode:                  # DB1.I0    INT   -> auto | manual | setup
+          mode:                      # DB1.I0    -> auto | manual | setup
             _payloadshape: timeseries-string
-          state:                 # DB1.I2    INT   -> see table above
+          state:                     # DB1.I2    -> see table above
             _payloadshape: timeseries-string
-          temp_c:                # DB1.R4    REAL
+          fault_active:              # DB1.X12.0 -> 0 | 1
             _payloadshape: timeseries-number
-          speed_rpm:             # DB1.DI8   DINT
+          warning_active:            # DB1.X12.1 -> 0 | 1
             _payloadshape: timeseries-number
-          fault_active:          # DB1.X12.0 BOOL  -> 0 | 1
+          fault_code:                # DB1.I24   0 = none
             _payloadshape: timeseries-number
-          warning_active:        # DB1.X12.1 BOOL  -> 0 | 1
+          good_count:                # DB1.DI16  monotonic
             _payloadshape: timeseries-number
-          fault_code:            # DB1.I24   INT   0 = none
+          scrap_count:               # DB1.DI20  monotonic
             _payloadshape: timeseries-number
-          good_count:            # DB1.DI16  DINT  monotonic
+          part_count:                # DB1.DI28  monotonic; the per-part join key
             _payloadshape: timeseries-number
-          scrap_count:           # DB1.DI20  DINT  monotonic
+          temp_c:                    # DB1.R4
             _payloadshape: timeseries-number
-          part_count:            # DB1.DI28  DINT  monotonic; the SPC dedup key
+          speed_rpm:                 # DB1.DI8
             _payloadshape: timeseries-number
 
   # ==========================================================================
-  # cnc — milling centre. diameter_mm is the SPC field: one value per part,
-  # held between parts, drifting with tool wear. Every scrapped part is one
-  # that measured outside 25.000 +/- 0.050 mm.
+  # cnc — milling centre.
+  #
+  # measurement.diameter_mm and coolant.pressure_bar are both resampled once
+  # per part and then HELD, so join them on part_count rather than on time.
+  # Diameter drifts with tool wear and resets at the tool change; every
+  # scrapped part is one that measured outside 25.000 +/- 0.050 mm.
   # ==========================================================================
   - name: s7sim-cnc
-    description: "S7 simulator, milling centre — core block + per-part SPC measurements (17 tags)"
+    description: "S7 simulator, milling centre — flat core + spindle/feed/tool/coolant/measurement (17 tags)"
     version:
       v1:
         structure:
-          mode:                  # DB1.I0
+          # --- flat core ---------------------------------------------------
+          mode:                      # DB1.I0
             _payloadshape: timeseries-string
-          state:                 # DB1.I2    running | tool_change | fault | ...
+          state:                     # DB1.I2    running | tool_change | fault | ...
             _payloadshape: timeseries-string
-          spindle_temp_c:        # DB1.R4    rises with tool wear
+          fault_active:              # DB1.X12.0
             _payloadshape: timeseries-number
-          spindle_speed_rpm:     # DB1.DI8   ~8000 while cutting, 0 otherwise
+          warning_active:            # DB1.X12.1
             _payloadshape: timeseries-number
-          fault_active:          # DB1.X12.0
+          fault_code:                # DB1.I24   101 tool break | 102 coolant low | 103 spindle overload
             _payloadshape: timeseries-number
-          warning_active:        # DB1.X12.1
+          good_count:                # DB1.DI16
             _payloadshape: timeseries-number
-          fault_code:            # DB1.I24   101 tool break | 102 coolant low | 103 spindle overload
+          scrap_count:               # DB1.DI20
             _payloadshape: timeseries-number
-          good_count:            # DB1.DI16
+          part_count:                # DB1.DI28  changes only when a part completes
             _payloadshape: timeseries-number
-          scrap_count:           # DB1.DI20
-            _payloadshape: timeseries-number
-          part_count:            # DB1.DI28  changes only when a part completes
-            _payloadshape: timeseries-number
-          diameter_mm:           # DB1.R32   SPC: nominal 25.000, tol +/-0.050
-            _payloadshape: timeseries-number
-          coolant_pressure_bar:  # DB1.R36   SPC: ~4.5, a capable process
-            _payloadshape: timeseries-number
-          coolant_level_pct:     # DB1.R40   depletes over a tool life
-            _payloadshape: timeseries-number
-          tool_number:           # DB1.I44
-            _payloadshape: timeseries-number
-          tool_life_pct:         # DB1.I46   100 -> 0 across 40 parts
-            _payloadshape: timeseries-number
-          spindle_load_pct:      # DB1.R48
-            _payloadshape: timeseries-number
-          feed_rate_mm_min:      # DB1.R52
-            _payloadshape: timeseries-number
+          # --- grouped -----------------------------------------------------
+          spindle:
+            speed_rpm:               # DB1.DI8   ~8000 while cutting, 0 otherwise
+              _payloadshape: timeseries-number
+            load_pct:                # DB1.R48   rises as the tool wears
+              _payloadshape: timeseries-number
+            temp_c:                  # DB1.R4    rises as the tool wears
+              _payloadshape: timeseries-number
+          feed:
+            rate_mm_min:             # DB1.R52
+              _payloadshape: timeseries-number
+          tool:
+            number:                  # DB1.I44   +1 per tool change
+              _payloadshape: timeseries-number
+            life_pct:                # DB1.I46   100 -> 0 across 40 parts
+              _payloadshape: timeseries-number
+          coolant:
+            pressure_bar:            # DB1.R36   per part, held; a capable process
+              _payloadshape: timeseries-number
+            level_pct:               # DB1.R40   depletes over a tool life
+              _payloadshape: timeseries-number
+          measurement:
+            diameter_mm:             # DB1.R32   per part, held; nominal 25.000 tol +/-0.050
+              _payloadshape: timeseries-number
 
   # ==========================================================================
   # oven — hardening furnace. Batch process: good_count and scrap_count stay
-  # flat for a whole charge and then jump by batch_size on discharge.
+  # flat for a whole charge, then jump by batch.size on discharge, published
+  # while batch.number still names the charge that produced them.
   # ==========================================================================
   - name: s7sim-oven
-    description: "S7 simulator, hardening furnace — core block + charge parameters (16 tags)"
+    description: "S7 simulator, hardening furnace — flat core + chamber/atmosphere/batch (16 tags)"
     version:
       v1:
         structure:
-          mode:                  # DB1.I0
+          # --- flat core ---------------------------------------------------
+          mode:                      # DB1.I0
             _payloadshape: timeseries-string
-          state:                 # DB1.I2    charging | heating | soaking | quenching | discharging
+          state:                     # DB1.I2    charging | heating | soaking | quenching | discharging
             _payloadshape: timeseries-string
-          chamber_temp_c:        # DB1.R4    ramps to setpoint, holds, quenches
+          fault_active:              # DB1.X12.0
             _payloadshape: timeseries-number
-          fan_speed_rpm:         # DB1.DI8   circulation fan, 0 when not running
+          warning_active:            # DB1.X12.1
             _payloadshape: timeseries-number
-          fault_active:          # DB1.X12.0
+          fault_code:                # DB1.I24   201 over-temperature | 202 door interlock | 203 atmosphere
             _payloadshape: timeseries-number
-          warning_active:        # DB1.X12.1
+          good_count:                # DB1.DI16  jumps by the whole charge
             _payloadshape: timeseries-number
-          fault_code:            # DB1.I24   201 over-temperature | 202 door interlock | 203 atmosphere
+          scrap_count:               # DB1.DI20  a ruined charge lands here in full
             _payloadshape: timeseries-number
-          good_count:            # DB1.DI16  jumps by the whole charge
+          part_count:                # DB1.DI28
             _payloadshape: timeseries-number
-          scrap_count:           # DB1.DI20  a ruined charge lands here in full
-            _payloadshape: timeseries-number
-          part_count:            # DB1.DI28
-            _payloadshape: timeseries-number
-          setpoint_temp_c:       # DB1.R32   860
-            _payloadshape: timeseries-number
-          heater_power_pct:      # DB1.R36
-            _payloadshape: timeseries-number
-          carbon_potential_pct:  # DB1.R40   %C atmosphere
-            _payloadshape: timeseries-number
-          batch_number:          # DB1.DI44  names the charge the jump belongs to
-            _payloadshape: timeseries-number
-          batch_size:            # DB1.I48   200
-            _payloadshape: timeseries-number
-          phase_remaining_s:     # DB1.I50
-            _payloadshape: timeseries-number
+          # --- grouped -----------------------------------------------------
+          chamber:
+            temp_c:                  # DB1.R4    ramps to setpoint, holds, quenches
+              _payloadshape: timeseries-number
+            setpoint_temp_c:         # DB1.R32   860
+              _payloadshape: timeseries-number
+            heater_power_pct:        # DB1.R36
+              _payloadshape: timeseries-number
+            fan_speed_rpm:           # DB1.DI8   circulation fan, 0 when not running
+              _payloadshape: timeseries-number
+          atmosphere:
+            carbon_potential_pct:    # DB1.R40   %C; drifts out of band -> warning 203
+              _payloadshape: timeseries-number
+          batch:
+            number:                  # DB1.DI44  names the charge the jump belongs to
+              _payloadshape: timeseries-number
+            size:                    # DB1.I48   200
+              _payloadshape: timeseries-number
+            phase_remaining_s:       # DB1.I50
+              _payloadshape: timeseries-number
 
   # ==========================================================================
   # washing — basket washer. Books ~30 parts per basket. Its alarms are the
   # bath itself: detergent depletes, contamination climbs until the filter
-  # clogs and forces a bath change.
+  # clogs and forces a bath change that resets both.
   # ==========================================================================
   - name: s7sim-washing
-    description: "S7 simulator, basket washer — core block + bath parameters (16 tags)"
+    description: "S7 simulator, basket washer — flat core + bath/pump/basket (16 tags)"
     version:
       v1:
         structure:
-          mode:                  # DB1.I0
+          # --- flat core ---------------------------------------------------
+          mode:                      # DB1.I0
             _payloadshape: timeseries-string
-          state:                 # DB1.I2    filling | washing | rinsing | drying | draining
+          state:                     # DB1.I2    filling | washing | rinsing | drying | draining
             _payloadshape: timeseries-string
-          bath_temp_c:           # DB1.R4    60 setpoint, dips on fill
+          fault_active:              # DB1.X12.0
             _payloadshape: timeseries-number
-          pump_speed_rpm:        # DB1.DI8   0 unless washing or rinsing
+          warning_active:            # DB1.X12.1
             _payloadshape: timeseries-number
-          fault_active:          # DB1.X12.0
+          fault_code:                # DB1.I24   301 detergent low | 302 filter clogged | 303 pump pressure low
             _payloadshape: timeseries-number
-          warning_active:        # DB1.X12.1
+          good_count:                # DB1.DI16  jumps by the basket
             _payloadshape: timeseries-number
-          fault_code:            # DB1.I24   301 detergent low | 302 filter clogged | 303 pump pressure low
+          scrap_count:               # DB1.DI20
             _payloadshape: timeseries-number
-          good_count:            # DB1.DI16  jumps by the basket
+          part_count:                # DB1.DI28
             _payloadshape: timeseries-number
-          scrap_count:           # DB1.DI20
-            _payloadshape: timeseries-number
-          part_count:            # DB1.DI28
-            _payloadshape: timeseries-number
-          pump_pressure_bar:     # DB1.R32   ~3.2, sags before a pump alarm
-            _payloadshape: timeseries-number
-          conductivity_us_cm:    # DB1.R36   climbs to 1200, resets on bath change
-            _payloadshape: timeseries-number
-          detergent_level_pct:   # DB1.R40   depletes, tops up on bath change
-            _payloadshape: timeseries-number
-          flow_rate_l_min:       # DB1.R44
-            _payloadshape: timeseries-number
-          basket_number:         # DB1.DI48  names the basket the jump belongs to
-            _payloadshape: timeseries-number
-          phase_remaining_s:     # DB1.I52
-            _payloadshape: timeseries-number
+          # --- grouped -----------------------------------------------------
+          bath:
+            temp_c:                  # DB1.R4    60 setpoint, dips on fill
+              _payloadshape: timeseries-number
+            conductivity_us_cm:      # DB1.R36   climbs to 1200, resets on bath change
+              _payloadshape: timeseries-number
+            detergent_level_pct:     # DB1.R40   depletes, tops up on bath change
+              _payloadshape: timeseries-number
+          pump:
+            speed_rpm:               # DB1.DI8   0 unless washing or rinsing
+              _payloadshape: timeseries-number
+            pressure_bar:            # DB1.R32   ~3.2, sags before a pump alarm
+              _payloadshape: timeseries-number
+            flow_rate_l_min:         # DB1.R44
+              _payloadshape: timeseries-number
+          basket:
+            number:                  # DB1.DI48  names the basket the jump belongs to
+              _payloadshape: timeseries-number
+            phase_remaining_s:       # DB1.I52
+              _payloadshape: timeseries-number
