@@ -17,18 +17,31 @@
   "templating": {
     "list": [
       {
+        "name": "DS",
+        "label": "Datenquelle",
+        "type": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1
+      },
+      {
         "name": "machine",
         "label": "Maschine",
         "type": "query",
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "timescaledb"
-        },
+        "datasource": "${DS}",
         "multi": true,
         "includeAll": true,
         "refresh": 2,
         "sort": 1,
-        "query": "SELECT DISTINCT\n       subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text,\n       l.path::text AS __value\nFROM umh.location l\nJOIN umh.topic t ON t.location_id = l.location_id\nJOIN umh.tag   g ON g.tag_id      = t.tag_id\nWHERE g.data_contract_name = '_cnc'\nORDER BY 1",
+        "query": {
+          "refId": "machine-variable",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1"
+        },
+        "definition": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
         "current": {},
         "options": []
       }
@@ -52,10 +65,7 @@
       "id": 1,
       "type": "stat",
       "title": "$machine",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 5,
         "w": 4,
@@ -101,6 +111,7 @@
               "type": "value"
             }
           ],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -109,8 +120,7 @@
                 "value": null
               }
             ]
-          },
-          "decimals": 0
+          }
         },
         "overrides": []
       },
@@ -119,27 +129,24 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "text": {
+          "valueSize": 26
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "/^value$/",
           "values": false
-        },
-        "text": {
-          "valueSize": 28
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ],
@@ -164,10 +171,7 @@
       "id": 2,
       "type": "stat",
       "title": "Status",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -213,6 +217,7 @@
               "type": "value"
             }
           ],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -221,8 +226,7 @@
                 "value": null
               }
             ]
-          },
-          "decimals": 0
+          }
         },
         "overrides": []
       },
@@ -231,27 +235,24 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "text": {
+          "valueSize": 26
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "/^value$/",
           "values": false
-        },
-        "text": {
-          "valueSize": 26
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -260,10 +261,7 @@
       "id": 3,
       "type": "stat",
       "title": "Störung",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 5,
@@ -299,6 +297,7 @@
               "type": "value"
             }
           ],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -307,8 +306,7 @@
                 "value": null
               }
             ]
-          },
-          "decimals": 0
+          }
         },
         "overrides": []
       },
@@ -317,27 +315,24 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "text": {
+          "valueSize": 22
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "/^value$/",
           "values": false
-        },
-        "text": {
-          "valueSize": 22
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'fault_code')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'fault_code') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -346,10 +341,7 @@
       "id": 4,
       "type": "stat",
       "title": "Gut",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 3,
@@ -359,6 +351,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -367,8 +360,7 @@
                 "value": null
               }
             ]
-          },
-          "decimals": 0
+          }
         },
         "overrides": []
       },
@@ -377,27 +369,24 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "text": {
+          "valueSize": 32
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "/^value$/",
           "values": false
-        },
-        "text": {
-          "valueSize": 32
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'good_count')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'good_count') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -406,10 +395,7 @@
       "id": 5,
       "type": "stat",
       "title": "Ausschuss",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 3,
@@ -419,6 +405,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -427,8 +414,7 @@
                 "value": null
               }
             ]
-          },
-          "decimals": 0
+          }
         },
         "overrides": []
       },
@@ -437,27 +423,24 @@
         "graphMode": "none",
         "justifyMode": "center",
         "textMode": "value",
+        "text": {
+          "valueSize": 32
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "/^value$/",
           "values": false
-        },
-        "text": {
-          "valueSize": 32
         }
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'scrap_count')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'scrap_count') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -466,10 +449,7 @@
       "id": 6,
       "type": "gauge",
       "title": "Werkzeug-Restlaufzeit",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -479,6 +459,7 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -496,7 +477,6 @@
               }
             ]
           },
-          "decimals": 0,
           "unit": "percent",
           "min": 0,
           "max": 100
@@ -516,14 +496,11 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', 'tool', 'cnc', 'life_pct')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', 'tool', 'cnc', 'life_pct') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -532,10 +509,7 @@
       "id": 7,
       "type": "stat",
       "title": "Spindellast",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 5,
@@ -544,9 +518,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 0,
           "mappings": [],
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -559,7 +532,8 @@
                 "value": 90
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -568,6 +542,9 @@
         "graphMode": "area",
         "justifyMode": "center",
         "textMode": "value",
+        "text": {
+          "valueSize": 32
+        },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -578,14 +555,11 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value\nFROM umh.value_cnc v\nWHERE v.topic_id = umh.get_topic_id('$machine', 'spindle', 'cnc', 'load_pct')\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', 'spindle', 'cnc', 'load_pct') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -593,11 +567,8 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Durchmesser je Teil (SPC) — Toleranz 25,000 ± 0,050 mm",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "timescaledb"
-      },
+      "title": "Durchmesser je Teil (SPC) — 25,000 ± 0,050 mm",
+      "datasource": "${DS}",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -608,6 +579,7 @@
         "defaults": {
           "unit": "lengthmm",
           "decimals": 3,
+          "mappings": [],
           "custom": {
             "drawStyle": "points",
             "pointSize": 5,
@@ -651,14 +623,11 @@
       },
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "timescaledb"
-          },
+          "datasource": "${DS}",
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "-- One point per part: the measurement is HELD between parts, so a raw\n-- query returns the same value once per poll (168 rows for 34 parts here).\n-- Keeping only value changes gives exactly one point per part without\n-- assuming the diameter and part_count rows share a timestamp.\nSELECT ts AS \"time\", value_num AS value\nFROM (\n  SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev\n  FROM umh.value_cnc v\n  WHERE v.topic_id = umh.get_topic_id('$machine', 'measurement', 'cnc', 'diameter_mm')\n    AND $__timeFilter(v.ts)\n) s\nWHERE prev IS NULL OR value_num <> prev\nORDER BY ts",
+          "rawSql": "SELECT ts AS \"time\", value_num AS value FROM (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', 'measurement', 'cnc', 'diameter_mm') AND $__timeFilter(v.ts)) s WHERE prev IS NULL OR value_num <> prev ORDER BY ts",
           "refId": "A"
         }
       ]

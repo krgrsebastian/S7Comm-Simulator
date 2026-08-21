@@ -322,8 +322,11 @@ that pooled connection, so every insert afterwards fails with
 `25P02 current transaction is aborted` and never recovers on its own. The two
 `fan_out` writers also race each other on the shared DDL (`deadlock detected`).
 
-So on a new database, extract both `init_statement` blocks and run them once,
-sequentially, then start the bridge. After that they are idempotent no-ops. An
+So on a new database, extract both `init_statement` blocks and run them once —
+**the metadata writer first**, since it is the one that bootstraps the schema,
+then the value writer — and only then start the bridge. (Running them the other
+way round reproduces the failure: the value writer's GRANT hits a schema that
+does not exist yet.) After that they are idempotent no-ops. An
 existing historian database already has the schema, so this only bites on a first
 deploy.
 
@@ -337,8 +340,19 @@ it.
 
 ## Andon dashboard
 
-`grafana/andon-cnc.json` — import it and pick machines in the **Maschine**
-dropdown; the board grows a tile and a detail row per selection.
+`grafana/andon-cnc.json` — import it, pick your historian in **Datenquelle**,
+then pick machines in **Maschine**; the board grows a tile and a detail row per
+selection.
+
+The datasource is a `${DS}` **variable**, not a hardcoded uid — on every panel
+*and* every target. That matters: a target's datasource overrides its panel's, so
+changing the datasource in the panel header alone leaves the query pointing at
+the old uid and it silently runs against the wrong database. With `${DS}` there
+is one place to set it.
+
+No query contains a newline or an SQL comment, deliberately: some Grafana
+versions collapse a rawSql into one line, which turns a leading `--` comment into
+a comment over the whole statement.
 
 The variable lists whatever writes into the contract, so a new CNC appears on its
 own:
