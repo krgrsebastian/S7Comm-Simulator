@@ -375,10 +375,22 @@ status, active alarm, good/scrap counts, tool life, spindle load, and the SPC
 chart.
 
 Panels query by `umh.get_topic_id('$machine', '<group>', 'cnc', '<tag>')`, which
-is a point lookup with no joins. Colour is kept to what needs action: red for a
-stopping fault, orange for a warning or a tool change, plain text otherwise —
-the state name is always written out, so the board still reads correctly with all
-colour removed.
+is a point lookup with no joins.
+
+Colour appears only where it carries meaning: green for running, orange for a
+warning or a tool change, red for a stopping fault. Idle, setup and stopped are
+mapped to `transparent`, not to a colour — a pale filled tile reads as "something
+is happening here" from across the shop floor, which is exactly wrong for a quiet
+state. The state name is always written out, so the board still reads correctly
+with all colour removed.
+
+Verified by rendering, not by reading the JSON: the dashboard was imported into
+Grafana 13.0.2 against a live TimescaleDB seeded by two simulators through the
+real historian bridge, then rendered as PNG with one and with two machines
+selected. Both repeats, the `${DS}` variable, the `machine` variable and all
+eight panels resolve and show data. Two defects only visible in the render were
+fixed that way: `Werkzeugwechsel` was clipped in a 4-unit-wide stat, and the
+no-fault and quiet-state tiles were rendering as filled pale blocks.
 
 **The SPC panel dedups.** `measurement.diameter_mm` is held between parts, so a
 raw query returns the same value once per poll — 168 rows for 34 parts in

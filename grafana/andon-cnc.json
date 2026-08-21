@@ -68,7 +68,7 @@
       "datasource": "${DS}",
       "gridPos": {
         "h": 5,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 1
       },
@@ -80,7 +80,7 @@
                 "0": {
                   "text": "Leerlauf",
                   "index": 0,
-                  "color": "text"
+                  "color": "transparent"
                 },
                 "10": {
                   "text": "Läuft",
@@ -90,7 +90,7 @@
                 "20": {
                   "text": "Rüsten",
                   "index": 2,
-                  "color": "text"
+                  "color": "transparent"
                 },
                 "30": {
                   "text": "Störung",
@@ -100,198 +100,12 @@
                 "40": {
                   "text": "Gestoppt",
                   "index": 4,
-                  "color": "text"
+                  "color": "transparent"
                 },
                 "70": {
                   "text": "Werkzeugwechsel",
                   "index": 5,
                   "color": "orange"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value",
-        "text": {
-          "valueSize": 26
-        },
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^value$/",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": "${DS}",
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
-          "refId": "A"
-        }
-      ],
-      "repeat": "machine",
-      "repeatDirection": "h"
-    },
-    {
-      "id": 101,
-      "type": "row",
-      "title": "$machine",
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 6
-      },
-      "repeat": "machine",
-      "panels": []
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Status",
-      "datasource": "${DS}",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "text": "Leerlauf",
-                  "index": 0,
-                  "color": "text"
-                },
-                "10": {
-                  "text": "Läuft",
-                  "index": 1,
-                  "color": "green"
-                },
-                "20": {
-                  "text": "Rüsten",
-                  "index": 2,
-                  "color": "text"
-                },
-                "30": {
-                  "text": "Störung",
-                  "index": 3,
-                  "color": "red"
-                },
-                "40": {
-                  "text": "Gestoppt",
-                  "index": 4,
-                  "color": "text"
-                },
-                "70": {
-                  "text": "Werkzeugwechsel",
-                  "index": 5,
-                  "color": "orange"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value",
-        "text": {
-          "valueSize": 26
-        },
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^value$/",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": "${DS}",
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Störung",
-      "datasource": "${DS}",
-      "gridPos": {
-        "h": 4,
-        "w": 5,
-        "x": 4,
-        "y": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "text": "—",
-                  "index": 0,
-                  "color": "text"
-                },
-                "101": {
-                  "text": "Werkzeugbruch",
-                  "index": 1,
-                  "color": "red"
-                },
-                "102": {
-                  "text": "Kühlmittel niedrig",
-                  "index": 2,
-                  "color": "orange"
-                },
-                "103": {
-                  "text": "Spindel-Überlast",
-                  "index": 3,
-                  "color": "red"
                 }
               },
               "type": "value"
@@ -332,6 +146,193 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "repeat": "machine",
+      "repeatDirection": "h",
+      "maxPerRow": 4
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "$machine",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "repeat": "machine",
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Status",
+      "datasource": "${DS}",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 0,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Leerlauf",
+                  "index": 0,
+                  "color": "transparent"
+                },
+                "10": {
+                  "text": "Läuft",
+                  "index": 1,
+                  "color": "green"
+                },
+                "20": {
+                  "text": "Rüsten",
+                  "index": 2,
+                  "color": "transparent"
+                },
+                "30": {
+                  "text": "Störung",
+                  "index": 3,
+                  "color": "red"
+                },
+                "40": {
+                  "text": "Gestoppt",
+                  "index": 4,
+                  "color": "transparent"
+                },
+                "70": {
+                  "text": "Werkzeugwechsel",
+                  "index": 5,
+                  "color": "orange"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "text": {
+          "valueSize": 20
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^value$/",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": "${DS}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Störung",
+      "datasource": "${DS}",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 5,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "—",
+                  "index": 0,
+                  "color": "transparent"
+                },
+                "101": {
+                  "text": "Werkzeugbruch",
+                  "index": 1,
+                  "color": "red"
+                },
+                "102": {
+                  "text": "Kühlmittel niedrig",
+                  "index": 2,
+                  "color": "orange"
+                },
+                "103": {
+                  "text": "Spindel-Überlast",
+                  "index": 3,
+                  "color": "red"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "text": {
+          "valueSize": 20
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^value$/",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": "${DS}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
           "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'fault_code') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
@@ -345,7 +346,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 9,
+        "x": 10,
         "y": 7
       },
       "fieldConfig": {
@@ -399,7 +400,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 12,
+        "x": 13,
         "y": 7
       },
       "fieldConfig": {
@@ -448,12 +449,12 @@
     {
       "id": 6,
       "type": "gauge",
-      "title": "Werkzeug-Restlaufzeit",
+      "title": "Werkzeug",
       "datasource": "${DS}",
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 15,
+        "x": 16,
         "y": 7
       },
       "fieldConfig": {
@@ -512,8 +513,8 @@
       "datasource": "${DS}",
       "gridPos": {
         "h": 4,
-        "w": 5,
-        "x": 19,
+        "w": 4,
+        "x": 20,
         "y": 7
       },
       "fieldConfig": {
