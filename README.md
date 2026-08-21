@@ -278,6 +278,14 @@ docker compose -f docker-compose.line.yml up -d --build
 docker compose -f docker-compose.line.yml logs -f s7-oven
 ```
 
+On a machine without the source, `docker-compose.hub.yml` runs cnc, oven and
+washing straight from Docker Hub — no build step:
+
+```bash
+curl -O https://raw.githubusercontent.com/krgrsebastian/S7Comm-Simulator/main/docker-compose.hub.yml
+docker compose -f docker-compose.hub.yml up -d
+```
+
 | machine | port |
 |---|---|
 | generic | 1102 |

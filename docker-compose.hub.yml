@@ -1,0 +1,43 @@
+# Three machines, straight from Docker Hub — no source checkout needed.
+#
+#   docker compose -f docker-compose.hub.yml up -d
+#   docker compose -f docker-compose.hub.yml logs -f s7-cnc
+#
+# Point a benthos-umh s7comm input at <vm-host>:1103 / :1104 / :1105. All three
+# publish the same ten core addresses, so one config reads any of them — only
+# the port changes. Add `python simulator.py --addresses` to a `docker run` to
+# print a machine's full address list.
+services:
+  s7-cnc:
+    image: skumh/s7comm-simulator:0.3.0
+    container_name: s7-cnc
+    ports:
+      - "1103:102"
+    environment:
+      S7_MACHINE_TYPE: "cnc"
+      # A part every 45s, ~30 min per tool life. Lower it to fast-forward
+      # the whole simulation, alarms included.
+      # S7_CYCLE_TIME: "45"
+    restart: unless-stopped
+
+  s7-oven:
+    image: skumh/s7comm-simulator:0.3.0
+    container_name: s7-oven
+    ports:
+      - "1104:102"
+    environment:
+      S7_MACHINE_TYPE: "oven"
+      # One 200-part charge every 5 min.
+      # S7_CYCLE_TIME: "300"
+    restart: unless-stopped
+
+  s7-washing:
+    image: skumh/s7comm-simulator:0.3.0
+    container_name: s7-washing
+    ports:
+      - "1105:102"
+    environment:
+      S7_MACHINE_TYPE: "washing"
+      # One 30-part basket every 2 min.
+      # S7_CYCLE_TIME: "120"
+    restart: unless-stopped
