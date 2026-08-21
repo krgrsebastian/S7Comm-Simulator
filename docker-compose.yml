@@ -9,4 +9,8 @@ services:
       - "1102:102"
     environment:
       S7_UPDATE_INTERVAL: "1.0"
+      # Seconds of auto-mode runtime per part. 60 => 1 part/minute.
+      S7_CYCLE_TIME: "60"
+      # Other knobs (see README): S7_SCRAP_RATE (default 0.05),
+      # S7_COUNTER_MAX (default 2147483647 — lower it to test counter rollover).
     restart: unless-stopped

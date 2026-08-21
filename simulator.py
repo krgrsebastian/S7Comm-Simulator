@@ -16,10 +16,24 @@ Exposed datapoints, all in DB1 (big-endian, Siemens layout):
 
     address        type   meaning
     -----------    -----  -------------------------------------------------
-    DB1.I0         INT    mode      0 = auto, 1 = manual, 2 = setup
-    DB1.R4         REAL   temperature  (deg C, oscillates ~20..80)
-    DB1.DI8        DINT   rpm          (0 when not in auto, else ~1500 +/- noise)
-    DB1.X12.0      BOOL   error        (occasionally flips true)
+    DB1.I0         INT    mode        0 = auto, 1 = manual, 2 = setup
+    DB1.R4         REAL   temperature (deg C, oscillates ~20..80)
+    DB1.DI8        DINT   rpm         (0 when not in auto, else ~1500 +/- noise)
+    DB1.X12.0      BOOL   error       (occasionally flips true)
+    DB1.DI16       DINT   good_parts  monotonic production counter
+    DB1.DI20       DINT   scrap_parts monotonic scrap counter
+
+good_parts / scrap_parts only ever count up. Nothing in the simulation loop
+resets them: they start at 0 on process start and wrap back to 0 once they pass
+S7_COUNTER_MAX, which is the behaviour a real PLC counter shows and which
+downstream counter logic has to tolerate.
+
+One part is booked per S7_CYCLE_TIME seconds of *auto-mode runtime* (default 60
+=> 1 part/minute while running). The cycle clock is paused in manual/setup mode
+— just like rpm drops to 0 there — so the counters plateau instead of banking
+cycles and dumping a burst when auto resumes. Each part lands in scrap_parts
+with probability S7_SCRAP_RATE, otherwise in good_parts, so good + scrap is the
+total part count.
 
 Keep the byte offsets below and the benthos `addresses:` list in sync.
 """
@@ -50,11 +64,29 @@ DB_NUMBER = int(os.environ.get("S7_DB", "1"))
 DB_SIZE = 64  # bytes; plenty of headroom for the datapoints below
 UPDATE_INTERVAL = float(os.environ.get("S7_UPDATE_INTERVAL", "1.0"))  # seconds
 
+# Seconds of auto-mode runtime per produced part. 60 => one part per minute.
+# The unprefixed CYCLE_TIME is accepted as an alias so both spellings work.
+CYCLE_TIME = float(
+    os.environ.get("S7_CYCLE_TIME") or os.environ.get("CYCLE_TIME") or "60"
+)
+# Share of parts booked as scrap instead of good (0.0 .. 1.0).
+SCRAP_RATE = float(os.environ.get("S7_SCRAP_RATE", "0.05"))
+# Counter wrap point. Default = DINT max, i.e. ~4000 years at 1 part/minute;
+# lower it to exercise overflow handling downstream.
+COUNTER_MAX = int(os.environ.get("S7_COUNTER_MAX", str(2**31 - 1)))
+
+if CYCLE_TIME <= 0:
+    raise SystemExit("S7_CYCLE_TIME must be > 0 (got %r)" % CYCLE_TIME)
+if COUNTER_MAX < 1 or COUNTER_MAX > 2**31 - 1:
+    raise SystemExit("S7_COUNTER_MAX must be 1..2147483647 to fit a DINT (got %r)" % COUNTER_MAX)
+
 # Byte offsets inside DB<DB_NUMBER>
-OFF_MODE = 0   # INT
-OFF_TEMP = 4   # REAL
-OFF_RPM = 8    # DINT
+OFF_MODE = 0    # INT
+OFF_TEMP = 4    # REAL
+OFF_RPM = 8     # DINT
 OFF_ERROR = 12  # BOOL, bit 0
+OFF_GOOD = 16   # DINT
+OFF_SCRAP = 20  # DINT
 
 MODE_NAMES = {0: "auto", 1: "manual", 2: "setup"}
 
@@ -74,7 +106,10 @@ def main() -> None:
     server.start(tcpport=TCP_PORT)
     log(f"S7 simulator (native Snap7) listening on 0.0.0.0:{TCP_PORT}  (DB{DB_NUMBER}, {DB_SIZE} bytes)")
     log("Datapoints: DB%d.I0=mode  DB%d.R4=temperature  DB%d.DI8=rpm  DB%d.X12.0=error"
-        % (DB_NUMBER, DB_NUMBER, DB_NUMBER, DB_NUMBER))
+        "  DB%d.DI16=good_parts  DB%d.DI20=scrap_parts"
+        % (DB_NUMBER, DB_NUMBER, DB_NUMBER, DB_NUMBER, DB_NUMBER, DB_NUMBER))
+    log("Cycle time: %gs/part while in auto (%.2f parts/min), scrap rate %g%%, counters wrap at %d"
+        % (CYCLE_TIME, 60.0 / CYCLE_TIME, SCRAP_RATE * 100.0, COUNTER_MAX))
 
     running = {"on": True}
 
@@ -91,11 +126,25 @@ def main() -> None:
 
     mode = 0
     t0 = time.monotonic()
+    last_now = t0
     tick = 0
+
+    # Production counters. Only ever incremented (and wrapped at COUNTER_MAX);
+    # nothing in the loop resets them.
+    good_parts = 0
+    scrap_parts = 0
+    # Accumulated auto-mode runtime not yet converted into parts. Drained by
+    # whole cycles, so the long-run rate is exactly one part per CYCLE_TIME
+    # regardless of UPDATE_INTERVAL, and CYCLE_TIME < UPDATE_INTERVAL simply
+    # books several parts per tick.
+    run_seconds = 0.0
 
     while running["on"]:
         tick += 1
-        elapsed = time.monotonic() - t0
+        now = time.monotonic()
+        elapsed = now - t0
+        dt = now - last_now
+        last_now = now
 
         # --- simulate values -------------------------------------------------
         # Mode: change roughly every ~15s, mostly auto
@@ -114,16 +163,29 @@ def main() -> None:
         # Error: ~3% chance per tick to be set, otherwise clear
         error = random.random() < 0.03
 
+        # Parts: the cycle clock only runs in auto mode, so the counters freeze
+        # (rather than bank cycles) while the machine is in manual/setup.
+        if mode == 0:
+            run_seconds += dt
+        while run_seconds >= CYCLE_TIME:
+            if random.random() < SCRAP_RATE:
+                scrap_parts = 0 if scrap_parts >= COUNTER_MAX else scrap_parts + 1
+            else:
+                good_parts = 0 if good_parts >= COUNTER_MAX else good_parts + 1
+            run_seconds -= CYCLE_TIME
+
         # --- encode (big-endian) and publish --------------------------------
         util.set_int(buf, OFF_MODE, mode)
         util.set_real(buf, OFF_TEMP, temperature)
         util.set_dint(buf, OFF_RPM, rpm)
         util.set_bool(buf, OFF_ERROR, 0, error)
+        util.set_dint(buf, OFF_GOOD, good_parts)
+        util.set_dint(buf, OFF_SCRAP, scrap_parts)
 
         ctypes.memmove(db, bytes(buf), DB_SIZE)
 
-        log("mode=%-6s temp=%5.1f  rpm=%-5d error=%s"
-            % (MODE_NAMES.get(mode, "?"), temperature, rpm, error))
+        log("mode=%-6s temp=%5.1f  rpm=%-5d error=%-5s good=%-8d scrap=%d"
+            % (MODE_NAMES.get(mode, "?"), temperature, rpm, error, good_parts, scrap_parts))
 
         time.sleep(UPDATE_INTERVAL)
 

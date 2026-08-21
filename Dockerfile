@@ -1,7 +1,9 @@
 FROM python:3.12-slim
 
-# python-snap7 3.0.0 bundles the native snap7 library in its wheel for
-# linux x86_64 and aarch64, so no extra system packages are required.
+# python-snap7 1.3 bundles the native libsnap7 in its wheel for linux x86_64
+# and aarch64, so no extra system packages are required. The pin matters: 3.0+
+# swaps in a pure-Python server that gos7 cannot handshake with (see
+# requirements.txt).
 WORKDIR /app
 
 COPY requirements.txt .

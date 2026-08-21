@@ -17,6 +17,8 @@ input:
       - "DB1.R4"      # temperature: REAL  deg C
       - "DB1.DI8"     # rpm:         DINT
       - "DB1.X12.0"   # error:       BOOL
+      - "DB1.DI16"    # good_parts:  DINT  monotonic counter
+      - "DB1.DI20"    # scrap_parts: DINT  monotonic counter
 
 pipeline:
   processors:
@@ -26,7 +28,9 @@ pipeline:
           "DB1.I0":    "mode",
           "DB1.R4":    "temperature",
           "DB1.DI8":   "rpm",
-          "DB1.X12.0": "error"
+          "DB1.X12.0": "error",
+          "DB1.DI16":  "good_parts",
+          "DB1.DI20":  "scrap_parts"
         }
         meta tag = $names.get(metadata("s7_address")).or(metadata("s7_address"))
 
