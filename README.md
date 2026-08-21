@@ -220,10 +220,10 @@ notice.
 
 ## Data models
 
-`datamodels.yaml` holds a UMH data model per machine type (`s7sim-generic`,
-`s7sim-cnc`, `s7sim-oven`, `s7sim-washing`) — paste the whole `dataModels:`
-block into a umh-core `config.yaml`. Field counts match the address counts
-exactly: 10 / 17 / 16 / 16.
+`datamodels.yaml` holds a UMH data model per machine type — `generic`, `cnc`,
+`oven`, `washing`, all at **v2** — so the data contracts are `_generic_v2`,
+`_cnc_v2` and so on. Paste the whole `dataModels:` block into a umh-core
+`config.yaml`. Field counts match the address counts exactly: 10 / 17 / 16 / 16.
 
 **A flat core, then grouped process values.** These eight fields are flat and
 identical in every model, so one query spans every asset whatever the machine
@@ -245,28 +245,43 @@ Everything machine-specific is grouped, and a group becomes the tag's
 | `generic` | none — all flat |
 
 So `spindle: { speed_rpm: … }` lands as virtual_path `spindle`, tag_name
-`speed_rpm`, topic suffix `…/spindle/speed_rpm`. The bridge mapping for the cnc:
+`speed_rpm`, topic suffix `…/spindle/speed_rpm`.
 
-| S7 address | virtual_path | tag_name |
-|---|---|---|
-| `DB1.I0` / `DB1.I2` | — | `mode` / `state` |
-| `DB1.X12.0` / `DB1.X12.1` / `DB1.I24` | — | `fault_active` / `warning_active` / `fault_code` |
-| `DB1.DI16` / `DB1.DI20` / `DB1.DI28` | — | `good_count` / `scrap_count` / `part_count` |
-| `DB1.DI8` / `DB1.R48` / `DB1.R4` | `spindle` | `speed_rpm` / `load_pct` / `temp_c` |
-| `DB1.R52` | `feed` | `rate_mm_min` |
-| `DB1.I44` / `DB1.I46` | `tool` | `number` / `life_pct` |
-| `DB1.R36` / `DB1.R40` | `coolant` | `pressure_bar` / `level_pct` |
-| `DB1.R32` | `measurement` | `diameter_mm` |
+Grouping changes every machine-specific topic, which is why it is v2 rather than
+an edit to v1. Editing a version in place is worth avoiding: the schema registry
+matches on subject *name*, so the old schema stays registered under the same
+subject and the `uns` output then rejects every message.
 
-The oven and washer follow the same pattern; every field carries its S7 address
-in a comment in `datamodels.yaml`.
+**Everything is a number, including `mode` and `state`.** The PLC serves both as
+INT codes. Modelling them as `timeseries-string` would fail schema validation on
+every message (the string subject requires `value: string`), and a plain
+address-to-tag bridge has nowhere to translate. Render the names in Grafana with
+value mappings; the code tables are in the file header. Booleans are 0/1 for the
+same reason — `timeseries-boolean` is not a umh-core built-in. Net result: one
+subject per model and no `payloadShapes:` section to declare.
 
-Only the two built-in payload shapes are used, so there is no `payloadShapes:`
-section to add. `mode` and `state` are `timeseries-string` because a name is
-what you want on a timeline — the simulator publishes them as INT codes, and the
-code-to-name tables are in the file's header. Booleans are 0/1 numbers, since
-`timeseries-boolean` is *not* a umh-core built-in and would otherwise force a
-`payloadShapes:` block.
+## Bridge tag CSVs
+
+`bridge-<machine>.csv` is the tag list in Management Console import format:
+
+```
+Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name
+DB1.DI8,,_cnc_v2,spindle,speed_rpm
+DB1.R32,,_cnc_v2,measurement,diameter_mm
+DB1.DI16,,_cnc_v2,,good_count
+```
+
+They are generated, not hand-written:
+
+```bash
+python tools/gen-bridge-csv.py          # regenerate all four
+python tools/gen-bridge-csv.py --check  # verify, write nothing
+```
+
+The generator derives every row from `datamodels.yaml` and cross-checks each
+address against `simulator.py --addresses` for that profile, so a model that
+drifts from the PLC layout fails loudly instead of producing a CSV that imports
+cleanly and reads the wrong bytes.
 
 ## Environment variables
 

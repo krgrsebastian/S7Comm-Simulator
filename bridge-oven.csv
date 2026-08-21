@@ -1,0 +1,17 @@
+Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name
+DB1.I0,,_oven_v2,,mode
+DB1.I2,,_oven_v2,,state
+DB1.X12.0,,_oven_v2,,fault_active
+DB1.X12.1,,_oven_v2,,warning_active
+DB1.I24,,_oven_v2,,fault_code
+DB1.DI16,,_oven_v2,,good_count
+DB1.DI20,,_oven_v2,,scrap_count
+DB1.DI28,,_oven_v2,,part_count
+DB1.R4,,_oven_v2,chamber,temp_c
+DB1.R32,,_oven_v2,chamber,setpoint_temp_c
+DB1.R36,,_oven_v2,chamber,heater_power_pct
+DB1.DI8,,_oven_v2,chamber,fan_speed_rpm
+DB1.R40,,_oven_v2,atmosphere,carbon_potential_pct
+DB1.DI44,,_oven_v2,batch,number
+DB1.I48,,_oven_v2,batch,size
+DB1.I50,,_oven_v2,batch,phase_remaining_s

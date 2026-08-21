@@ -21,8 +21,13 @@
 # only thing to set in the bridge beyond the tag name.
 #
 # ---------------------------------------------------------------------------
-# Enum codes (mode and state are modelled as strings — a name is what you want
-# on a timeline; the simulator publishes INT codes, so the bridge maps them)
+# Enum codes — mode and state are NUMBERS, deliberately
+# ---------------------------------------------------------------------------
+# The PLC serves both as INT codes. Modelling them as timeseries-string would
+# make every one of those messages fail schema validation (the string subject
+# requires value: string), and a plain address-to-tag bridge has nowhere to
+# translate. Numbers keep the bridge a pure mapping; render the names in
+# Grafana with value mappings, which is where you want them anyway.
 # ---------------------------------------------------------------------------
 #   mode   0 auto        1 manual      2 setup
 #   state  0 idle        10 running    20 setup       30 fault      40 stopped
@@ -30,12 +35,18 @@
 #          60 filling    61 washing    62 rinsing     63 drying     64 draining
 #          70 tool_change
 #
-# Booleans are 0/1 numbers: timeseries-boolean is NOT a umh-core built-in
+# Booleans are 0/1 numbers too: timeseries-boolean is NOT a umh-core built-in
 # (pkg/datamodel/validator.go injects only number and string), so using it
 # would force a payloadShapes: block.
 #
 # The S7 address each field comes from is in the comment beside it. Field
 # counts match the address counts exactly: 10 / 17 / 16 / 16.
+#
+# Version: v2. v1 was the flat variant; grouping fields into virtual paths
+# changes every machine-specific topic, so it is a breaking change and gets a
+# new version rather than an edit. Editing a version in place would leave the
+# registry holding the OLD schema under the same subject name, and the uns
+# output would then reject every message.
 
 dataModels:
 
@@ -43,15 +54,15 @@ dataModels:
   # generic — the plain machine: one part per cycle, no alarms.
   # Deliberately all flat: it has no subsystems worth grouping.
   # ==========================================================================
-  - name: s7sim-generic
+  - name: generic
     description: "S7 simulator, generic machine — flat core only (10 tags)"
     version:
-      v1:
+      v2:
         structure:
-          mode:                      # DB1.I0    -> auto | manual | setup
-            _payloadshape: timeseries-string
-          state:                     # DB1.I2    -> see table above
-            _payloadshape: timeseries-string
+          mode:                      # DB1.I0    0 auto | 1 manual | 2 setup
+            _payloadshape: timeseries-number
+          state:                     # DB1.I2    see the code table above
+            _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0 -> 0 | 1
             _payloadshape: timeseries-number
           warning_active:            # DB1.X12.1 -> 0 | 1
@@ -77,16 +88,16 @@ dataModels:
   # Diameter drifts with tool wear and resets at the tool change; every
   # scrapped part is one that measured outside 25.000 +/- 0.050 mm.
   # ==========================================================================
-  - name: s7sim-cnc
+  - name: cnc
     description: "S7 simulator, milling centre — flat core + spindle/feed/tool/coolant/measurement (17 tags)"
     version:
-      v1:
+      v2:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
-            _payloadshape: timeseries-string
+            _payloadshape: timeseries-number
           state:                     # DB1.I2    running | tool_change | fault | ...
-            _payloadshape: timeseries-string
+            _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0
             _payloadshape: timeseries-number
           warning_active:            # DB1.X12.1
@@ -129,16 +140,16 @@ dataModels:
   # flat for a whole charge, then jump by batch.size on discharge, published
   # while batch.number still names the charge that produced them.
   # ==========================================================================
-  - name: s7sim-oven
+  - name: oven
     description: "S7 simulator, hardening furnace — flat core + chamber/atmosphere/batch (16 tags)"
     version:
-      v1:
+      v2:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
-            _payloadshape: timeseries-string
+            _payloadshape: timeseries-number
           state:                     # DB1.I2    charging | heating | soaking | quenching | discharging
-            _payloadshape: timeseries-string
+            _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0
             _payloadshape: timeseries-number
           warning_active:            # DB1.X12.1
@@ -177,16 +188,16 @@ dataModels:
   # bath itself: detergent depletes, contamination climbs until the filter
   # clogs and forces a bath change that resets both.
   # ==========================================================================
-  - name: s7sim-washing
+  - name: washing
     description: "S7 simulator, basket washer — flat core + bath/pump/basket (16 tags)"
     version:
-      v1:
+      v2:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
-            _payloadshape: timeseries-string
+            _payloadshape: timeseries-number
           state:                     # DB1.I2    filling | washing | rinsing | drying | draining
-            _payloadshape: timeseries-string
+            _payloadshape: timeseries-number
           fault_active:              # DB1.X12.0
             _payloadshape: timeseries-number
           warning_active:            # DB1.X12.1

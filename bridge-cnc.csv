@@ -1,0 +1,18 @@
+Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name
+DB1.I0,,_cnc_v2,,mode
+DB1.I2,,_cnc_v2,,state
+DB1.X12.0,,_cnc_v2,,fault_active
+DB1.X12.1,,_cnc_v2,,warning_active
+DB1.I24,,_cnc_v2,,fault_code
+DB1.DI16,,_cnc_v2,,good_count
+DB1.DI20,,_cnc_v2,,scrap_count
+DB1.DI28,,_cnc_v2,,part_count
+DB1.DI8,,_cnc_v2,spindle,speed_rpm
+DB1.R48,,_cnc_v2,spindle,load_pct
+DB1.R4,,_cnc_v2,spindle,temp_c
+DB1.R52,,_cnc_v2,feed,rate_mm_min
+DB1.I44,,_cnc_v2,tool,number
+DB1.I46,,_cnc_v2,tool,life_pct
+DB1.R36,,_cnc_v2,coolant,pressure_bar
+DB1.R40,,_cnc_v2,coolant,level_pct
+DB1.R32,,_cnc_v2,measurement,diameter_mm
