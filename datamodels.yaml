@@ -42,11 +42,19 @@
 # The S7 address each field comes from is in the comment beside it. Field
 # counts match the address counts exactly: 10 / 17 / 16 / 16.
 #
-# Version: v2. v1 was the flat variant; grouping fields into virtual paths
-# changes every machine-specific topic, so it is a breaking change and gets a
-# new version rather than an edit. Editing a version in place would leave the
-# registry holding the OLD schema under the same subject name, and the uns
-# output would then reject every message.
+# Version: v3.
+#   v1  flat, mode/state as strings
+#   v2  grouped, mode/state as strings  -> unusable from a plain CSV bridge:
+#       the PLC serves INT codes and the string subject requires value: string
+#   v3  grouped, everything numeric     <- this file
+#
+# Each of those is a new version rather than an edit, and that is not
+# bookkeeping. umh-core's registry reconcile (pkg/service/redpanda/
+# schema_registry.go, compare phase) matches on the subject NAME only and never
+# compares schema content: a subject that already exists is left exactly as it
+# is. Editing a version in place therefore leaves the old schema registered and
+# the uns output keeps rejecting messages. Bumping the version makes the old
+# subjects unexpected, so the same reconcile deletes them for you.
 
 dataModels:
 
@@ -57,7 +65,7 @@ dataModels:
   - name: generic
     description: "S7 simulator, generic machine — flat core only (10 tags)"
     version:
-      v2:
+      v3:
         structure:
           mode:                      # DB1.I0    0 auto | 1 manual | 2 setup
             _payloadshape: timeseries-number
@@ -91,7 +99,7 @@ dataModels:
   - name: cnc
     description: "S7 simulator, milling centre — flat core + spindle/feed/tool/coolant/measurement (17 tags)"
     version:
-      v2:
+      v3:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
@@ -143,7 +151,7 @@ dataModels:
   - name: oven
     description: "S7 simulator, hardening furnace — flat core + chamber/atmosphere/batch (16 tags)"
     version:
-      v2:
+      v3:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0
@@ -191,7 +199,7 @@ dataModels:
   - name: washing
     description: "S7 simulator, basket washer — flat core + bath/pump/basket (16 tags)"
     version:
-      v2:
+      v3:
         structure:
           # --- flat core ---------------------------------------------------
           mode:                      # DB1.I0

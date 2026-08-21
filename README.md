@@ -221,8 +221,8 @@ notice.
 ## Data models
 
 `datamodels.yaml` holds a UMH data model per machine type — `generic`, `cnc`,
-`oven`, `washing`, all at **v2** — so the data contracts are `_generic_v2`,
-`_cnc_v2` and so on. Paste the whole `dataModels:` block into a umh-core
+`oven`, `washing`, all at **v3** — so the data contracts are `_generic_v3`,
+`_cnc_v3` and so on. Paste the whole `dataModels:` block into a umh-core
 `config.yaml`. Field counts match the address counts exactly: 10 / 17 / 16 / 16.
 
 **A flat core, then grouped process values.** These eight fields are flat and
@@ -247,10 +247,17 @@ Everything machine-specific is grouped, and a group becomes the tag's
 So `spindle: { speed_rpm: … }` lands as virtual_path `spindle`, tag_name
 `speed_rpm`, topic suffix `…/spindle/speed_rpm`.
 
-Grouping changes every machine-specific topic, which is why it is v2 rather than
-an edit to v1. Editing a version in place is worth avoiding: the schema registry
-matches on subject *name*, so the old schema stays registered under the same
-subject and the `uns` output then rejects every message.
+**Never edit a version in place — always bump it.** umh-core's registry
+reconcile (`pkg/service/redpanda/schema_registry.go`, compare phase) matches on
+the subject *name* only and never compares schema content, so a subject that
+already exists is left exactly as it was. Editing `v2` after it has been
+deployed leaves the old schema registered and the `uns` output keeps rejecting
+messages with `datatype mismatch … want timeseries-string, got
+timeseries-number`. Bumping the version makes the old subjects unexpected, and
+the same reconcile deletes them for you.
+
+Version history: `v1` flat with string enums, `v2` grouped with string enums
+(unusable from a plain CSV bridge), `v3` grouped and fully numeric.
 
 **Everything is a number, including `mode` and `state`.** The PLC serves both as
 INT codes. Modelling them as `timeseries-string` would fail schema validation on
@@ -266,9 +273,9 @@ subject per model and no `payloadShapes:` section to declare.
 
 ```
 Address,Location Path Suffix,Data Contract,Virtual Path,Tag Name
-DB1.DI8,,_cnc_v2,spindle,speed_rpm
-DB1.R32,,_cnc_v2,measurement,diameter_mm
-DB1.DI16,,_cnc_v2,,good_count
+DB1.DI8,,_cnc_v3,spindle,speed_rpm
+DB1.R32,,_cnc_v3,measurement,diameter_mm
+DB1.DI16,,_cnc_v3,,good_count
 ```
 
 They are generated, not hand-written:
