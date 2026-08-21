@@ -288,6 +288,94 @@ works on every version.
 `tools/gen-bridge-csv.py` enforces the whole table above, so a field can no
 longer be declared with a shape its address cannot produce.
 
+## Historian
+
+`historian/processing.js` and `historian/destination.yaml` are the two blocks of a
+`uns_to_postgres` bridge, tailored to the `cnc` contract — paste them into the
+protocol converter's **Processing** and **Destination** fields. They were cloned
+from a working bridge and adjusted only as intended: `const CONTRACT = "cnc"`,
+every table renamed to `umh.value_cnc` / `umh.attribute_cnc` in both writers, and
+both `dsn:` lines set to `${HISTORIAN_DSN}`.
+
+**One bridge per contract, not per machine.** It reads the whole UNS and filters
+on the contract, so every CNC lands in the same two tables.
+
+`data_contract_name` is stored **without** the version: rows for `_cnc_v4` appear
+as `_cnc`, and all versions of a contract share one table. That string is what
+dashboards filter on.
+
+Location paths are normalised the ltree way — every character outside
+`[A-Za-z0-9_]` becomes `_`, so `umh-factory` is stored as `umh_factory`.
+`umh.get_topic_id()` normalises its argument the same way, so a panel may pass
+either spelling.
+
+The boolean tags land in `value_num` as 0/1 with `value_type = 'numeric'`, which
+is what the historian does with every boolean.
+
+### On a fresh database, run the two init blocks once, by hand
+
+Verified the hard way. The value writer's `init_statement` opens with
+`BEGIN; GRANT USAGE ON SCHEMA umh …` — *before* its own `CREATE SCHEMA`. On an
+empty database that GRANT fails, which aborts the transaction, so the block never
+reaches `CREATE TABLE umh.value_cnc`. Worse, the aborted transaction stays open on
+that pooled connection, so every insert afterwards fails with
+`25P02 current transaction is aborted` and never recovers on its own. The two
+`fan_out` writers also race each other on the shared DDL (`deadlock detected`).
+
+So on a new database, extract both `init_statement` blocks and run them once,
+sequentially, then start the bridge. After that they are idempotent no-ops. An
+existing historian database already has the schema, so this only bites on a first
+deploy.
+
+### Watch out for a tag pinned to the wrong datatype
+
+`umh.tag.value_type` is pinned on a tag's first write and a trigger rejects any
+later change. If a tag ever arrived as text — e.g. while a bit was still coming
+through as the string `"true"` — every later numeric write for it is refused.
+Delete that `umh.tag` row (and its `umh.topic` rows) and let the bridge recreate
+it.
+
+## Andon dashboard
+
+`grafana/andon-cnc.json` — import it and pick machines in the **Maschine**
+dropdown; the board grows a tile and a detail row per selection.
+
+The variable lists whatever writes into the contract, so a new CNC appears on its
+own:
+
+```sql
+SELECT DISTINCT
+       subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text,
+       l.path::text AS __value
+FROM umh.location l
+JOIN umh.topic t ON t.location_id = l.location_id
+JOIN umh.tag   g ON g.tag_id      = t.tag_id
+WHERE g.data_contract_name = '_cnc'
+ORDER BY 1
+```
+
+`__text` is the last ltree label, so the dropdown shows `hermle_c400` while the
+panels get the full path. Layout: an **Andon** row of status tiles (one per
+machine, repeated horizontally), then a repeated detail row per machine with
+status, active alarm, good/scrap counts, tool life, spindle load, and the SPC
+chart.
+
+Panels query by `umh.get_topic_id('$machine', '<group>', 'cnc', '<tag>')`, which
+is a point lookup with no joins. Colour is kept to what needs action: red for a
+stopping fault, orange for a warning or a tool change, plain text otherwise —
+the state name is always written out, so the board still reads correctly with all
+colour removed.
+
+**The SPC panel dedups.** `measurement.diameter_mm` is held between parts, so a
+raw query returns the same value once per poll — 168 rows for 34 parts in
+testing. The panel keeps only rows where the value changed, which yields exactly
+one point per part (34 points against a part counter that advanced 33) without
+assuming the diameter and `part_count` rows share a timestamp.
+
+Grants: the historian writes into schema `umh`, so `grafana_reader` needs
+`USAGE` on that schema — the bridge's init does this, but a reader role created
+later needs it granted again, otherwise every panel returns permission denied.
+
 ## Bridge tag CSVs
 
 `bridge-<machine>.csv` is the tag list in Management Console import format:

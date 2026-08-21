@@ -1,0 +1,282 @@
+pattern: fan_out
+outputs:
+  - sql_raw:
+      driver: postgres
+      # MUST_CHANGE_owner_password: set to match the umh_owner role (see the
+      # DATABASE SETUP notes in the processing step above).
+      dsn: '${HISTORIAN_DSN}'
+      init_statement: |
+        BEGIN;
+        GRANT USAGE ON SCHEMA umh TO grafana_reader;
+        GRANT SELECT ON ALL TABLES IN SCHEMA umh TO grafana_reader;
+        ALTER DEFAULT PRIVILEGES FOR ROLE umh_writer IN SCHEMA umh GRANT SELECT ON TABLES TO grafana_reader;
+        SELECT pg_advisory_xact_lock(hashtext('uns_to_timescale_bootstrap'));
+        CREATE EXTENSION IF NOT EXISTS ltree;
+
+        CREATE SCHEMA IF NOT EXISTS umh;
+
+        CREATE TABLE IF NOT EXISTS umh.schema_migrations (
+          version    INT PRIMARY KEY,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        DO $$
+        BEGIN
+          CREATE TYPE umh.value_type AS ENUM ('numeric', 'text');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+        CREATE TABLE IF NOT EXISTS umh.location (
+          location_id BIGSERIAL PRIMARY KEY,
+          path        LTREE NOT NULL,
+          UNIQUE (path)
+        );
+        CREATE INDEX IF NOT EXISTS idx_location_path_gist ON umh.location USING GIST (path);
+        CREATE TABLE IF NOT EXISTS umh.tag (
+          tag_id        BIGSERIAL PRIMARY KEY,
+          name          TEXT       NOT NULL,
+          virtual_path  TEXT       NOT NULL,
+          data_contract_name TEXT  NOT NULL,
+          value_type    umh.value_type NOT NULL,
+          UNIQUE (virtual_path, name, data_contract_name)
+        );
+
+        CREATE OR REPLACE FUNCTION umh.tag_value_type_guard()
+        RETURNS trigger LANGUAGE plpgsql AS $guard$
+        BEGIN
+          IF NEW.value_type IS DISTINCT FROM OLD.value_type THEN
+            RAISE EXCEPTION 'tag datatype changed for virtual_path=% name=% contract=%: stored % but received % (one tag must always produce the same datatype)',
+              OLD.virtual_path, OLD.name, OLD.data_contract_name, OLD.value_type, NEW.value_type;
+          END IF;
+          RETURN NEW;
+        END $guard$;
+        DROP TRIGGER IF EXISTS trg_tag_value_type_guard ON umh.tag;
+        CREATE TRIGGER trg_tag_value_type_guard
+          BEFORE UPDATE ON umh.tag
+          FOR EACH ROW EXECUTE FUNCTION umh.tag_value_type_guard();
+
+        CREATE OR REPLACE FUNCTION umh.raise_pk_conflict(p_msg text, p_ret anyelement)
+        RETURNS anyelement LANGUAGE plpgsql AS $rpc$
+        BEGIN
+          RAISE EXCEPTION '%', p_msg;
+        END $rpc$;
+        CREATE TABLE IF NOT EXISTS umh.topic (
+          topic_id    BIGSERIAL PRIMARY KEY,
+          location_id BIGINT NOT NULL REFERENCES umh.location(location_id),
+          tag_id      BIGINT NOT NULL REFERENCES umh.tag(tag_id),
+          UNIQUE (location_id, tag_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS umh.value_cnc (
+          topic_id   BIGINT           NOT NULL,
+          ts         TIMESTAMPTZ      NOT NULL,
+          value_num  DOUBLE PRECISION,
+          value_text TEXT,
+          PRIMARY KEY (topic_id, ts),
+          CONSTRAINT ck_value_num_text_exclusive
+            CHECK ((value_num IS NULL) <> (value_text IS NULL)),
+          CONSTRAINT ck_value_text_max_size
+            CHECK (octet_length(value_text) <= 65536)
+        );
+        SELECT create_hypertable('umh.value_cnc', 'ts', chunk_time_interval => INTERVAL '7 days', if_not_exists => TRUE);
+        DO $$
+        BEGIN
+          PERFORM remove_compression_policy('umh.value_cnc', if_exists => TRUE);
+          ALTER TABLE umh.value_cnc SET (
+            timescaledb.compress,
+            timescaledb.compress_segmentby = 'topic_id',
+            timescaledb.compress_orderby   = 'ts DESC'
+          );
+          PERFORM add_compression_policy('umh.value_cnc', INTERVAL '7 days');
+          PERFORM remove_retention_policy('umh.value_cnc', if_exists => TRUE);
+        END $$;
+
+        CREATE OR REPLACE FUNCTION umh.to_ltree_path(p_location_path text)
+        RETURNS ltree
+        LANGUAGE sql IMMUTABLE
+        AS $ltree$
+          SELECT string_agg(q.lbl, '.' ORDER BY q.ord)::ltree
+            FROM (SELECT left(regexp_replace(s.seg, '[^A-Za-z0-9_]', '_', 'g'), 255) AS lbl, s.ord
+                    FROM unnest(string_to_array(p_location_path, '.')) WITH ORDINALITY AS s(seg, ord)) q
+           WHERE length(q.lbl) > 0;
+        $ltree$;
+
+        CREATE OR REPLACE FUNCTION umh.get_topic_id(
+          p_location_path text,
+          p_virtual_path  text,
+          p_data_contract text,
+          p_tag_name      text
+        )
+        RETURNS bigint
+        LANGUAGE sql STABLE SECURITY INVOKER SET search_path = umh, public, pg_temp
+        AS $fn$
+          SELECT t.topic_id
+            FROM umh.location l
+            JOIN umh.tag   g ON g.virtual_path = p_virtual_path
+                        AND g.name = p_tag_name
+                        AND g.data_contract_name =
+                            '_' || regexp_replace(regexp_replace(p_data_contract, '_v\d+$', ''), '^_', '')
+            JOIN umh.topic t ON t.location_id = l.location_id AND t.tag_id = g.tag_id
+           WHERE l.path = umh.to_ltree_path(p_location_path);
+        $fn$;
+
+        COMMIT;
+      query: |
+
+        WITH loc AS (
+          INSERT INTO umh.location (path) VALUES ($1::ltree)
+          ON CONFLICT (path) DO UPDATE SET path = EXCLUDED.path
+          RETURNING location_id
+        ),
+        tg AS (
+          INSERT INTO umh.tag (name, virtual_path, data_contract_name, value_type)
+          VALUES ($4, $3, $2, $5::umh.value_type)
+          ON CONFLICT (virtual_path, name, data_contract_name) DO UPDATE SET value_type = EXCLUDED.value_type
+          RETURNING tag_id
+        ),
+        tp AS (
+          INSERT INTO umh.topic (location_id, tag_id)
+          SELECT loc.location_id, tg.tag_id FROM loc CROSS JOIN tg
+          ON CONFLICT (location_id, tag_id) DO UPDATE SET location_id = EXCLUDED.location_id
+          RETURNING topic_id
+        )
+        INSERT INTO umh.value_cnc AS v (topic_id, ts, value_num, value_text)
+        SELECT tp.topic_id, $6::timestamptz, $7::double precision, $8 FROM tp
+        ON CONFLICT (topic_id, ts) DO UPDATE
+          SET value_num = CASE
+            WHEN v.value_num  IS DISTINCT FROM EXCLUDED.value_num
+              OR v.value_text IS DISTINCT FROM EXCLUDED.value_text
+            THEN umh.raise_pk_conflict(
+                   format('value conflict at topic_id=%s ts=%s: stored (num=%s, text=%s) but received (num=%s, text=%s)',
+                          v.topic_id, v.ts, v.value_num, v.value_text, EXCLUDED.value_num, EXCLUDED.value_text),
+                   NULL::double precision)
+            ELSE v.value_num
+          END;
+      args_mapping: |
+        [ meta("_ltree"), meta("_data_contract_name"), meta("virtual_path").or(""),
+          meta("tag_name"), meta("_value_type"),
+          meta("_ts"), this._value_num, this._value_text ]
+      batching:
+        count: 1000
+        period: 1s
+      max_in_flight: 8
+  - switch:
+      cases:
+        - check: 'meta("_emit_meta") == "true"'
+          output:
+            sql_raw:
+              driver: postgres
+              # MUST_CHANGE_owner_password: same value as the value-writer dsn above.
+              dsn: '${HISTORIAN_DSN}'
+              init_statement: |
+                DO $bootstrap$
+                BEGIN
+
+                  PERFORM pg_advisory_xact_lock(hashtext('uns_to_timescale_bootstrap'));
+
+                  CREATE EXTENSION IF NOT EXISTS ltree;
+
+                  CREATE SCHEMA IF NOT EXISTS umh;
+
+                  CREATE TABLE IF NOT EXISTS umh.schema_migrations (
+                    version    INT PRIMARY KEY,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                  );
+                  BEGIN
+                    CREATE TYPE umh.value_type AS ENUM ('numeric', 'text');
+                  EXCEPTION WHEN duplicate_object THEN NULL;
+                  END;
+                  CREATE TABLE IF NOT EXISTS umh.location (
+                    location_id BIGSERIAL PRIMARY KEY,
+                    path        LTREE NOT NULL,
+                    UNIQUE (path)
+                  );
+                  CREATE INDEX IF NOT EXISTS idx_location_path_gist ON umh.location USING GIST (path);
+                  CREATE TABLE IF NOT EXISTS umh.tag (
+                    tag_id        BIGSERIAL PRIMARY KEY,
+                    name          TEXT       NOT NULL,
+                    virtual_path  TEXT       NOT NULL,
+                    data_contract_name TEXT  NOT NULL,
+                    value_type    umh.value_type NOT NULL,
+                    UNIQUE (virtual_path, name, data_contract_name)
+                  );
+                  CREATE OR REPLACE FUNCTION umh.tag_value_type_guard()
+                  RETURNS trigger LANGUAGE plpgsql AS $guard$
+                  BEGIN
+                    IF NEW.value_type IS DISTINCT FROM OLD.value_type THEN
+                      RAISE EXCEPTION 'tag datatype changed for virtual_path=% name=% contract=%: stored % but received % (one tag must always produce the same datatype)',
+                        OLD.virtual_path, OLD.name, OLD.data_contract_name, OLD.value_type, NEW.value_type;
+                    END IF;
+                    RETURN NEW;
+                  END $guard$;
+                  DROP TRIGGER IF EXISTS trg_tag_value_type_guard ON umh.tag;
+                  CREATE TRIGGER trg_tag_value_type_guard
+                    BEFORE UPDATE ON umh.tag
+                    FOR EACH ROW EXECUTE FUNCTION umh.tag_value_type_guard();
+                  CREATE OR REPLACE FUNCTION umh.raise_pk_conflict(p_msg text, p_ret anyelement)
+                  RETURNS anyelement LANGUAGE plpgsql AS $rpc$
+                  BEGIN
+                    RAISE EXCEPTION '%', p_msg;
+                  END $rpc$;
+                  CREATE TABLE IF NOT EXISTS umh.topic (
+                    topic_id    BIGSERIAL PRIMARY KEY,
+                    location_id BIGINT NOT NULL REFERENCES umh.location(location_id),
+                    tag_id      BIGINT NOT NULL REFERENCES umh.tag(tag_id),
+                    UNIQUE (location_id, tag_id)
+                  );
+
+                  CREATE TABLE IF NOT EXISTS umh.attribute_cnc (
+                    topic_id  BIGINT      NOT NULL,
+                    ts        TIMESTAMPTZ NOT NULL,
+                    attribute JSONB       NOT NULL,
+                    PRIMARY KEY (topic_id, ts)
+                  );
+                  PERFORM create_hypertable('umh.attribute_cnc', 'ts', if_not_exists => TRUE);
+                  PERFORM remove_compression_policy('umh.attribute_cnc', if_exists => TRUE);
+                  ALTER TABLE umh.attribute_cnc SET (
+                    timescaledb.compress,
+                    timescaledb.compress_segmentby = 'topic_id',
+                    timescaledb.compress_orderby   = 'ts DESC'
+                  );
+                  PERFORM add_compression_policy('umh.attribute_cnc', INTERVAL '7 days');
+                  PERFORM remove_retention_policy('umh.attribute_cnc', if_exists => TRUE);
+
+                END $bootstrap$;
+              query: |
+
+                WITH loc AS (
+                  INSERT INTO umh.location (path) VALUES ($1::ltree)
+                  ON CONFLICT (path) DO UPDATE SET path = EXCLUDED.path
+                  RETURNING location_id
+                ),
+                tg AS (
+                  INSERT INTO umh.tag (name, virtual_path, data_contract_name, value_type)
+                  VALUES ($4, $3, $2, $5::umh.value_type)
+                  ON CONFLICT (virtual_path, name, data_contract_name) DO UPDATE SET value_type = EXCLUDED.value_type
+                  RETURNING tag_id
+                ),
+                tp AS (
+                  INSERT INTO umh.topic (location_id, tag_id)
+                  SELECT loc.location_id, tg.tag_id FROM loc CROSS JOIN tg
+                  ON CONFLICT (location_id, tag_id) DO UPDATE SET location_id = EXCLUDED.location_id
+                  RETURNING topic_id
+                )
+                INSERT INTO umh.attribute_cnc AS a (topic_id, ts, attribute)
+                SELECT tp.topic_id, $6::timestamptz, $7::jsonb FROM tp
+                ON CONFLICT (topic_id, ts) DO UPDATE
+                  SET attribute = CASE
+                    WHEN a.attribute IS DISTINCT FROM EXCLUDED.attribute
+                    THEN umh.raise_pk_conflict(
+                           format('attribute conflict at topic_id=%s ts=%s: stored %s but received %s',
+                                  a.topic_id, a.ts, a.attribute, EXCLUDED.attribute),
+                           NULL::jsonb)
+                    ELSE a.attribute
+                  END;
+              args_mapping: |
+                [ meta("_ltree"), meta("_data_contract_name"), meta("virtual_path").or(""),
+                  meta("tag_name"), meta("_value_type"),
+                  meta("_ts"), meta("_metadata_json") ]
+              batching:
+                count: 1000
+                period: 1s
+              max_in_flight: 8
+        - output:
+            drop: {}
