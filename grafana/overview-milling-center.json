@@ -1,0 +1,943 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_TIMESCALEDB",
+      "label": "TimescaleDB",
+      "description": "Historian database",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "PostgreSQL",
+      "version": "1.0.0"
+    }
+  ],
+  "title": "Overview — milling_center",
+  "uid": "milling-center",
+  "tags": [
+    "overview",
+    "umh"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-12h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "milling_center — asset overview",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "table",
+      "title": "CNC — click a machine to drill down",
+      "datasource": "${DS_TIMESCALEDB}",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "idle",
+                        "index": 0,
+                        "color": "transparent"
+                      },
+                      "10": {
+                        "text": "running",
+                        "index": 1,
+                        "color": "green"
+                      },
+                      "20": {
+                        "text": "setup",
+                        "index": 2,
+                        "color": "#EAB839"
+                      },
+                      "30": {
+                        "text": "FAULT",
+                        "index": 3,
+                        "color": "red"
+                      },
+                      "40": {
+                        "text": "stopped",
+                        "index": 4,
+                        "color": "#4A4A50"
+                      },
+                      "50": {
+                        "text": "charging",
+                        "index": 5,
+                        "color": "green"
+                      },
+                      "51": {
+                        "text": "heating",
+                        "index": 6,
+                        "color": "green"
+                      },
+                      "52": {
+                        "text": "soaking",
+                        "index": 7,
+                        "color": "green"
+                      },
+                      "53": {
+                        "text": "quenching",
+                        "index": 8,
+                        "color": "green"
+                      },
+                      "54": {
+                        "text": "discharging",
+                        "index": 9,
+                        "color": "green"
+                      },
+                      "60": {
+                        "text": "filling",
+                        "index": 10,
+                        "color": "green"
+                      },
+                      "61": {
+                        "text": "washing",
+                        "index": 11,
+                        "color": "green"
+                      },
+                      "62": {
+                        "text": "rinsing",
+                        "index": 12,
+                        "color": "green"
+                      },
+                      "63": {
+                        "text": "drying",
+                        "index": 13,
+                        "color": "green"
+                      },
+                      "64": {
+                        "text": "draining",
+                        "index": 14,
+                        "color": "green"
+                      },
+                      "70": {
+                        "text": "tool change",
+                        "index": 15,
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Availability"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quality"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 0.95
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.98
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "path"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Line"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Machine"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open CNC Andon for this machine",
+                    "url": "/d/andon-cnc/andon-cnc?var-machine=${__data.fields.path}&from=${__from}&to=${__to}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Machine"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Line"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": "${DS_TIMESCALEDB}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH base AS (SELECT l.location_id, l.path, g.name, v.value_num, v.ts FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name IN ('state','good_count','scrap_count') AND $__timeFilter(v.ts)), st AS (SELECT location_id, path, (array_agg(value_num ORDER BY ts DESC))[1] AS state_now, avg(CASE WHEN value_num = 10 OR value_num >= 50 THEN 1.0 ELSE 0.0 END) AS availability FROM base WHERE name = 'state' GROUP BY location_id, path), q AS (SELECT location_id, max(CASE WHEN name='good_count' THEN value_num END) - min(CASE WHEN name='good_count' THEN value_num END) AS good_d, max(CASE WHEN name='scrap_count' THEN value_num END) - min(CASE WHEN name='scrap_count' THEN value_num END) AS scrap_d FROM base WHERE name IN ('good_count','scrap_count') GROUP BY location_id) SELECT subltree(st.path, nlevel(st.path)-2, nlevel(st.path)-1)::text AS \"Line\", subltree(st.path, nlevel(st.path)-1, nlevel(st.path))::text AS \"Machine\", st.state_now AS \"State\", st.availability AS \"Availability\", CASE WHEN coalesce(q.good_d,0) + coalesce(q.scrap_d,0) > 0 THEN q.good_d / (q.good_d + q.scrap_d) END AS \"Quality\", st.path::text AS \"path\" FROM st LEFT JOIN q ON q.location_id = st.location_id ORDER BY 1, 2",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Oven",
+      "datasource": "${DS_TIMESCALEDB}",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "idle",
+                        "index": 0,
+                        "color": "transparent"
+                      },
+                      "10": {
+                        "text": "running",
+                        "index": 1,
+                        "color": "green"
+                      },
+                      "20": {
+                        "text": "setup",
+                        "index": 2,
+                        "color": "#EAB839"
+                      },
+                      "30": {
+                        "text": "FAULT",
+                        "index": 3,
+                        "color": "red"
+                      },
+                      "40": {
+                        "text": "stopped",
+                        "index": 4,
+                        "color": "#4A4A50"
+                      },
+                      "50": {
+                        "text": "charging",
+                        "index": 5,
+                        "color": "green"
+                      },
+                      "51": {
+                        "text": "heating",
+                        "index": 6,
+                        "color": "green"
+                      },
+                      "52": {
+                        "text": "soaking",
+                        "index": 7,
+                        "color": "green"
+                      },
+                      "53": {
+                        "text": "quenching",
+                        "index": 8,
+                        "color": "green"
+                      },
+                      "54": {
+                        "text": "discharging",
+                        "index": 9,
+                        "color": "green"
+                      },
+                      "60": {
+                        "text": "filling",
+                        "index": 10,
+                        "color": "green"
+                      },
+                      "61": {
+                        "text": "washing",
+                        "index": 11,
+                        "color": "green"
+                      },
+                      "62": {
+                        "text": "rinsing",
+                        "index": 12,
+                        "color": "green"
+                      },
+                      "63": {
+                        "text": "drying",
+                        "index": 13,
+                        "color": "green"
+                      },
+                      "64": {
+                        "text": "draining",
+                        "index": 14,
+                        "color": "green"
+                      },
+                      "70": {
+                        "text": "tool change",
+                        "index": 15,
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Availability"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quality"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 0.95
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.98
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "path"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Line"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Machine"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Line"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": "${DS_TIMESCALEDB}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH base AS (SELECT l.location_id, l.path, g.name, v.value_num, v.ts FROM umh.value_oven v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE g.data_contract_name = '_oven' AND g.virtual_path = '' AND g.name IN ('state','good_count','scrap_count') AND $__timeFilter(v.ts)), st AS (SELECT location_id, path, (array_agg(value_num ORDER BY ts DESC))[1] AS state_now, avg(CASE WHEN value_num = 10 OR value_num >= 50 THEN 1.0 ELSE 0.0 END) AS availability FROM base WHERE name = 'state' GROUP BY location_id, path), q AS (SELECT location_id, max(CASE WHEN name='good_count' THEN value_num END) - min(CASE WHEN name='good_count' THEN value_num END) AS good_d, max(CASE WHEN name='scrap_count' THEN value_num END) - min(CASE WHEN name='scrap_count' THEN value_num END) AS scrap_d FROM base WHERE name IN ('good_count','scrap_count') GROUP BY location_id) SELECT subltree(st.path, nlevel(st.path)-2, nlevel(st.path)-1)::text AS \"Line\", subltree(st.path, nlevel(st.path)-1, nlevel(st.path))::text AS \"Machine\", st.state_now AS \"State\", st.availability AS \"Availability\", CASE WHEN coalesce(q.good_d,0) + coalesce(q.scrap_d,0) > 0 THEN q.good_d / (q.good_d + q.scrap_d) END AS \"Quality\", st.path::text AS \"path\" FROM st LEFT JOIN q ON q.location_id = st.location_id ORDER BY 1, 2",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Washing",
+      "datasource": "${DS_TIMESCALEDB}",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "idle",
+                        "index": 0,
+                        "color": "transparent"
+                      },
+                      "10": {
+                        "text": "running",
+                        "index": 1,
+                        "color": "green"
+                      },
+                      "20": {
+                        "text": "setup",
+                        "index": 2,
+                        "color": "#EAB839"
+                      },
+                      "30": {
+                        "text": "FAULT",
+                        "index": 3,
+                        "color": "red"
+                      },
+                      "40": {
+                        "text": "stopped",
+                        "index": 4,
+                        "color": "#4A4A50"
+                      },
+                      "50": {
+                        "text": "charging",
+                        "index": 5,
+                        "color": "green"
+                      },
+                      "51": {
+                        "text": "heating",
+                        "index": 6,
+                        "color": "green"
+                      },
+                      "52": {
+                        "text": "soaking",
+                        "index": 7,
+                        "color": "green"
+                      },
+                      "53": {
+                        "text": "quenching",
+                        "index": 8,
+                        "color": "green"
+                      },
+                      "54": {
+                        "text": "discharging",
+                        "index": 9,
+                        "color": "green"
+                      },
+                      "60": {
+                        "text": "filling",
+                        "index": 10,
+                        "color": "green"
+                      },
+                      "61": {
+                        "text": "washing",
+                        "index": 11,
+                        "color": "green"
+                      },
+                      "62": {
+                        "text": "rinsing",
+                        "index": 12,
+                        "color": "green"
+                      },
+                      "63": {
+                        "text": "drying",
+                        "index": 13,
+                        "color": "green"
+                      },
+                      "64": {
+                        "text": "draining",
+                        "index": 14,
+                        "color": "green"
+                      },
+                      "70": {
+                        "text": "tool change",
+                        "index": 15,
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Availability"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quality"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 0.95
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.98
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "path"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Line"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Machine"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Line"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": "${DS_TIMESCALEDB}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH base AS (SELECT l.location_id, l.path, g.name, v.value_num, v.ts FROM umh.value_washing v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE g.data_contract_name = '_washing' AND g.virtual_path = '' AND g.name IN ('state','good_count','scrap_count') AND $__timeFilter(v.ts)), st AS (SELECT location_id, path, (array_agg(value_num ORDER BY ts DESC))[1] AS state_now, avg(CASE WHEN value_num = 10 OR value_num >= 50 THEN 1.0 ELSE 0.0 END) AS availability FROM base WHERE name = 'state' GROUP BY location_id, path), q AS (SELECT location_id, max(CASE WHEN name='good_count' THEN value_num END) - min(CASE WHEN name='good_count' THEN value_num END) AS good_d, max(CASE WHEN name='scrap_count' THEN value_num END) - min(CASE WHEN name='scrap_count' THEN value_num END) AS scrap_d FROM base WHERE name IN ('good_count','scrap_count') GROUP BY location_id) SELECT subltree(st.path, nlevel(st.path)-2, nlevel(st.path)-1)::text AS \"Line\", subltree(st.path, nlevel(st.path)-1, nlevel(st.path))::text AS \"Machine\", st.state_now AS \"State\", st.availability AS \"Availability\", CASE WHEN coalesce(q.good_d,0) + coalesce(q.scrap_d,0) > 0 THEN q.good_d / (q.good_d + q.scrap_d) END AS \"Quality\", st.path::text AS \"path\" FROM st LEFT JOIN q ON q.location_id = st.location_id ORDER BY 1, 2",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

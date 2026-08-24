@@ -514,6 +514,50 @@ Grants: the historian writes into schema `umh`, so `grafana_reader` needs
 `USAGE` on that schema — the bridge's init does this, but a reader role created
 later needs it granted again, otherwise every panel returns permission denied.
 
+## Overview dashboard — a whole area
+
+`grafana/overview-milling-center.json` (uid `milling-center`) is the level above
+the Andon board: every asset in the `milling_center` area on one screen, three
+values each and nothing more.
+
+```
+CNC — click a machine to drill down
+  line_01   hermle_c400          running    100.0%   97.6%
+  line_02   hermle_c400          FAULT       91.8%   97.6%
+  line_03   hermle_c400          setup       94.6%   97.6%
+Oven
+  line_01   oven                 heating    100.0%   97.6%
+  line_03   oven                 FAULT       89.0%   97.6%
+Washing
+  line_01   ecoclean_ecocwave    washing    100.0%   97.6%
+  line_02   ecoclean_ecocwave    stopped     83.3%   97.6%
+```
+
+One table per machine type, because the three live in different tables
+(`umh.value_cnc`, `umh.value_oven`, `umh.value_washing`) and only the flat core
+of the contracts is shared. The queries use only `state`, `good_count` and
+`scrap_count`, which every one of the three contracts carries.
+
+**Availability is not "state = running".** An oven in `soaking` and a washer in
+`rinsing` are producing — neither is ever `state = 10`. It counts the share of
+samples in a productive state: `state = 10` or any process phase (`>= 50`).
+Setup, stopped, idle and fault do not count.
+
+**Quality** is the window delta, `Δgood / (Δgood + Δscrap)`, not the lifetime
+ratio, so it reflects the selected time range.
+
+The **Machine** column of the CNC table links to the Andon board for that
+machine:
+
+```
+/d/andon-cnc/andon-cnc?var-machine=${__data.fields.path}&from=${__from}&to=${__to}
+```
+
+The full ltree path travels in a hidden `path` column, which is what the Andon's
+`machine` variable uses as its value. The link sits only on the CNC table — the
+oven and washer have no detail board yet, and a link into the CNC Andon with an
+oven path would land on empty panels.
+
 ## Bridge tag CSVs
 
 `bridge-<machine>.csv` is the tag list in Management Console import format:
