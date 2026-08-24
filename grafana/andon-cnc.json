@@ -18,7 +18,7 @@
     "list": [
       {
         "name": "machine",
-        "label": "Maschine",
+        "label": "Machine",
         "type": "query",
         "datasource": "${DS_TIMESCALEDB}",
         "multi": true,
@@ -100,7 +100,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH f AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_active' AND $__timeFilter(v.ts)) SELECT extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS \"Status seit\" FROM f WHERE prev IS NOT NULL AND value_num <> prev",
+          "rawSql": "WITH f AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_active' AND $__timeFilter(v.ts)) SELECT extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS \"time in this state\" FROM f WHERE prev IS NOT NULL AND value_num <> prev",
           "refId": "A"
         }
       ]
@@ -126,107 +126,107 @@
               "type": "value",
               "options": {
                 "100": {
-                  "text": "läuft",
+                  "text": "running",
                   "color": "green",
                   "index": 0
                 },
                 "101": {
-                  "text": "STÖRUNG",
+                  "text": "FAULT",
                   "color": "red",
                   "index": 1
                 },
                 "102": {
-                  "text": "Werkzeugwechsel",
+                  "text": "tool change",
                   "color": "orange",
                   "index": 2
                 },
                 "103": {
-                  "text": "Rüsten",
+                  "text": "setup",
                   "color": "#EAB839",
                   "index": 3
                 },
                 "104": {
-                  "text": "gestoppt",
+                  "text": "stopped",
                   "color": "#4A4A50",
                   "index": 4
                 },
                 "109": {
-                  "text": "keine Daten",
+                  "text": "no data",
                   "color": "transparent",
                   "index": 5
                 },
                 "200": {
-                  "text": "keine",
+                  "text": "none",
                   "color": "green",
                   "index": 6
                 },
                 "201": {
-                  "text": "Kühlmittel niedrig",
+                  "text": "coolant low",
                   "color": "#EAB839",
                   "index": 7
                 },
                 "202": {
-                  "text": "Werkzeugbruch",
+                  "text": "tool break",
                   "color": "red",
                   "index": 8
                 },
                 "203": {
-                  "text": "Spindel-Überlast",
+                  "text": "spindle overload",
                   "color": "red",
                   "index": 9
                 },
                 "209": {
-                  "text": "keine Daten",
+                  "text": "no data",
                   "color": "transparent",
                   "index": 10
                 },
                 "300": {
-                  "text": "in Toleranz",
+                  "text": "in tolerance",
                   "color": "green",
                   "index": 11
                 },
                 "301": {
-                  "text": "außer Toleranz",
+                  "text": "OUT OF TOLERANCE",
                   "color": "red",
                   "index": 12
                 },
                 "309": {
-                  "text": "keine Daten",
+                  "text": "no data",
                   "color": "transparent",
                   "index": 13
                 },
                 "400": {
-                  "text": "ausreichend",
+                  "text": "ok",
                   "color": "green",
                   "index": 14
                 },
                 "401": {
-                  "text": "bald wechseln",
+                  "text": "change soon",
                   "color": "#EAB839",
                   "index": 15
                 },
                 "402": {
-                  "text": "verbraucht",
+                  "text": "worn out",
                   "color": "red",
                   "index": 16
                 },
                 "409": {
-                  "text": "keine Daten",
+                  "text": "no data",
                   "color": "transparent",
                   "index": 17
                 },
                 "500": {
-                  "text": "ausreichend",
+                  "text": "ok",
                   "color": "green",
                   "index": 18
                 },
                 "501": {
-                  "text": "niedrig",
+                  "text": "low",
                   "color": "#EAB839",
                   "index": 19
                 },
                 "509": {
-                  "text": "keine Daten",
+                  "text": "no data",
                   "color": "transparent",
                   "index": 20
                 }
@@ -268,7 +268,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1) SELECT metric, value FROM (SELECT 1 AS ord, 'Betrieb' AS metric, CASE WHEN st IS NULL THEN 109 WHEN st=10 THEN 100 WHEN st=30 THEN 101 WHEN st=70 THEN 102 WHEN st=20 THEN 103 WHEN st IN (0,40) THEN 104 ELSE 109 END AS value FROM s UNION ALL SELECT 2, 'Störung', CASE WHEN fc IS NULL THEN 209 WHEN fc=0 THEN 200 WHEN fc=102 THEN 201 WHEN fc=101 THEN 202 WHEN fc=103 THEN 203 ELSE 209 END FROM s UNION ALL SELECT 3, 'Qualität', CASE WHEN dia IS NULL THEN 309 WHEN abs(dia-25.0)>0.05 THEN 301 ELSE 300 END FROM s UNION ALL SELECT 4, 'Werkzeug', CASE WHEN tl IS NULL THEN 409 WHEN tl<15 THEN 402 WHEN tl<30 THEN 401 ELSE 400 END FROM s UNION ALL SELECT 5, 'Kühlmittel', CASE WHEN cl IS NULL THEN 509 WHEN cl<=20 THEN 501 ELSE 500 END FROM s) x ORDER BY x.ord",
+          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1) SELECT metric, value FROM (SELECT 1 AS ord, 'Operation' AS metric, CASE WHEN st IS NULL THEN 109 WHEN st=10 THEN 100 WHEN st=30 THEN 101 WHEN st=70 THEN 102 WHEN st=20 THEN 103 WHEN st IN (0,40) THEN 104 ELSE 109 END AS value FROM s UNION ALL SELECT 2, 'Fault', CASE WHEN fc IS NULL THEN 209 WHEN fc=0 THEN 200 WHEN fc=102 THEN 201 WHEN fc=101 THEN 202 WHEN fc=103 THEN 203 ELSE 209 END FROM s UNION ALL SELECT 3, 'Quality', CASE WHEN dia IS NULL THEN 309 WHEN abs(dia-25.0)>0.05 THEN 301 ELSE 300 END FROM s UNION ALL SELECT 4, 'Tool', CASE WHEN tl IS NULL THEN 409 WHEN tl<15 THEN 402 WHEN tl<30 THEN 401 ELSE 400 END FROM s UNION ALL SELECT 5, 'Coolant', CASE WHEN cl IS NULL THEN 509 WHEN cl<=20 THEN 501 ELSE 500 END FROM s) x ORDER BY x.ord",
           "refId": "A"
         }
       ]
@@ -276,7 +276,7 @@
     {
       "id": 100,
       "type": "row",
-      "title": "Detail je Maschine",
+      "title": "Machine detail",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -301,39 +301,39 @@
         "defaults": {
           "mappings": [
             {
+              "type": "value",
               "options": {
                 "0": {
-                  "text": "Leerlauf",
+                  "text": "idle",
                   "index": 0,
                   "color": "transparent"
                 },
                 "10": {
-                  "text": "Läuft",
+                  "text": "running",
                   "index": 1,
                   "color": "green"
                 },
                 "20": {
-                  "text": "Rüsten",
+                  "text": "setup",
                   "index": 2,
-                  "color": "transparent"
+                  "color": "#EAB839"
                 },
                 "30": {
-                  "text": "Störung",
+                  "text": "FAULT",
                   "index": 3,
                   "color": "red"
                 },
                 "40": {
-                  "text": "Gestoppt",
+                  "text": "stopped",
                   "index": 4,
-                  "color": "transparent"
+                  "color": "#4A4A50"
                 },
                 "70": {
-                  "text": "Werkzeugwechsel",
+                  "text": "tool change",
                   "index": 5,
                   "color": "orange"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
           "decimals": 0,
@@ -408,39 +408,39 @@
         "defaults": {
           "mappings": [
             {
+              "type": "value",
               "options": {
                 "0": {
-                  "text": "Leerlauf",
+                  "text": "idle",
                   "index": 0,
                   "color": "transparent"
                 },
                 "10": {
-                  "text": "Läuft",
+                  "text": "running",
                   "index": 1,
                   "color": "green"
                 },
                 "20": {
-                  "text": "Rüsten",
+                  "text": "setup",
                   "index": 2,
-                  "color": "transparent"
+                  "color": "#EAB839"
                 },
                 "30": {
-                  "text": "Störung",
+                  "text": "FAULT",
                   "index": 3,
                   "color": "red"
                 },
                 "40": {
-                  "text": "Gestoppt",
+                  "text": "stopped",
                   "index": 4,
-                  "color": "transparent"
+                  "color": "#4A4A50"
                 },
                 "70": {
-                  "text": "Werkzeugwechsel",
+                  "text": "tool change",
                   "index": 5,
                   "color": "orange"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
           "decimals": 0,
@@ -486,7 +486,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Störung",
+      "title": "Fault",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
@@ -498,6 +498,7 @@
         "defaults": {
           "mappings": [
             {
+              "type": "value",
               "options": {
                 "0": {
                   "text": "—",
@@ -505,22 +506,21 @@
                   "color": "transparent"
                 },
                 "101": {
-                  "text": "Werkzeugbruch",
+                  "text": "tool break",
                   "index": 1,
                   "color": "red"
                 },
                 "102": {
-                  "text": "Kühlmittel niedrig",
+                  "text": "coolant low",
                   "index": 2,
-                  "color": "orange"
+                  "color": "#EAB839"
                 },
                 "103": {
-                  "text": "Spindel-Überlast",
+                  "text": "spindle overload",
                   "index": 3,
                   "color": "red"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
           "decimals": 0,
@@ -566,7 +566,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Gut",
+      "title": "Good",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
@@ -620,7 +620,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Ausschuss",
+      "title": "Scrap",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
@@ -674,7 +674,7 @@
     {
       "id": 6,
       "type": "gauge",
-      "title": "Werkzeug",
+      "title": "Tool",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
@@ -734,7 +734,7 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "Spindellast",
+      "title": "Spindle load",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
@@ -793,7 +793,7 @@
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Durchmesser je Teil (SPC) — 25,000 ± 0,050 mm",
+      "title": "Diameter per part (SPC) — 25.000 ± 0.050 mm",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 8,

@@ -366,42 +366,46 @@ colour-coded cell per status dimension. Underneath, the per-machine detail row
 (counters, tool life, spindle load, SPC chart) for drilling in.
 
 ```
-        line_01        line_02        line_03
-      [ 3 minutes ]  [ 3 minutes ]  [ 15 minutes ]
-Betrieb    green          RED           green
-Störung    green          RED           yellow
-Qualität    RED          green          green
-Werkzeug   green         green           RED
-Kühlmittel green         green          yellow
+              line_01              line_02              line_03
+        time in this state    time in this state   time in this state
+              15m                   01m                  15m
+Operation   running                FAULT                setup
+Fault       none                   tool break           none
+Quality     OUT OF TOLERANCE       in tolerance         in tolerance
+Tool        ok                     ok                   worn out
+Coolant     ok                     ok                   low
 ```
 
 **Every cell states its own condition in words**, with colour as reinforcement,
 not as the only carrier of meaning. A colour-only tile works for a binary row;
-for a multi-valued state like `state` it does not — you cannot tell "Rüsten"
-from "gestoppt" from "no data" by shade. The value is encoded as
+for a multi-valued state like `state` it does not — you cannot tell "setup"
+from "stopped" from "no data" by shade. The value is encoded as
 `dimension*100 + condition` and a value-mapping table gives each code its text
-and colour, so a tile reads `Betrieb läuft`, `Betrieb STÖRUNG`, `Werkzeug
-verbraucht`.
+and colour, so a tile reads `Operation running`, `Operation FAULT`, `Tool worn out`.
 
-Grey means exactly one thing — `gestoppt`, spelled out. Genuinely missing data
-renders transparent and says `keine Daten`. Those must never share a colour.
+Grey means exactly one thing — `stopped`, spelled out. Genuinely missing data
+renders transparent and says `no data`. Those must never share a colour.
 
-The timer is labelled `Status seit` and shows how long the current condition has
-lasted (seconds since the last `fault_active` transition, `clocks` unit so it
-reads `02m` in any language). That wording is true whether the machine is
-running or faulted; `ohne Störung seit` was wrong on a faulted machine, which
-the render made obvious.
+The timer is labelled `time in this state` and shows how long the current
+condition has lasted — seconds since the last `fault_active` transition, in the
+`clocks` unit so it reads `01m`. Read together with the Operation row it is
+unambiguous: `FAULT` plus `time in this state 01m` means down for a minute. Two
+earlier labels failed here: `ohne Störung seit` was simply false on a faulted
+machine, and `Status seit` was vague enough that it had to be explained — which
+is the same defect in a milder form.
 
 The rows are the dimensions the CNC contract actually carries — no placeholder
 cells:
 
-| row | source | green | yellow | orange | red |
-|---|---|---|---|---|---|
-| Betrieb | `state` | running | — | tool change | fault |
-| Störung | `fault_code` | 0 | 102 coolant low | — | 101 / 103 |
-| Qualität | `measurement.diameter_mm` | in tolerance | — | — | out of tolerance |
-| Werkzeug | `tool.life_pct` | > 30 % | 15–30 % | — | < 15 % |
-| Kühlmittel | `coolant.level_pct` | > 20 % | ≤ 20 % | — | — |
+| row | source | green | yellow | orange | red | grey |
+|---|---|---|---|---|---|---|
+| Operation | `state` | running | setup | tool change | FAULT | stopped |
+| Fault | `fault_code` | none | coolant low | — | tool break, spindle overload | — |
+| Quality | `measurement.diameter_mm` | in tolerance | — | — | out of tolerance | — |
+| Tool | `tool.life_pct` | ok > 30 % | change soon 15–30 % | — | worn out < 15 % | — |
+| Coolant | `coolant.level_pct` | ok > 20 % | low ≤ 20 % | — | — | — |
+
+The dashboard is in English throughout.
 
 A missing value renders transparent rather than green, so "no data" never reads
 as "fine". The timer counts seconds since the last change of `fault_active`, so
