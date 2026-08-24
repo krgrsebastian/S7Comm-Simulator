@@ -186,9 +186,9 @@
     },
     {
       "id": 2,
-      "type": "stat",
+      "type": "gauge",
       "title": "OEE",
-      "description": "Availability x quality over the dashboard window. Performance is not measured (no takt time in the contract) and is taken as 100%.",
+      "description": "Availability x quality over the dashboard window. Performance is not measured (no takt time in the contract) and is taken as 100%. The markers are 60% and 85%.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${DS_TIMESCALEDB}"
@@ -204,18 +204,28 @@
           "color": {
             "mode": "thresholds"
           },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 1,
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.6
+              },
+              {
+                "color": "green",
+                "value": 0.85
               }
             ]
-          },
-          "mappings": [],
-          "unit": "percentunit",
-          "decimals": 1
+          }
         },
         "overrides": []
       },
@@ -227,11 +237,11 @@
           "fields": "",
           "values": false
         },
-        "orientation": "vertical",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75
       },
       "targets": [
         {
@@ -248,7 +258,7 @@
     },
     {
       "id": 3,
-      "type": "stat",
+      "type": "gauge",
       "title": "Availability",
       "description": "Share of samples in a producing state over the window.",
       "datasource": {
@@ -266,18 +276,28 @@
           "color": {
             "mode": "thresholds"
           },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 1,
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.6
+              },
+              {
+                "color": "green",
+                "value": 0.85
               }
             ]
-          },
-          "mappings": [],
-          "unit": "percentunit",
-          "decimals": 1
+          }
         },
         "overrides": []
       },
@@ -289,11 +309,11 @@
           "fields": "",
           "values": false
         },
-        "orientation": "vertical",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75
       },
       "targets": [
         {
@@ -310,7 +330,7 @@
     },
     {
       "id": 4,
-      "type": "stat",
+      "type": "gauge",
       "title": "Quality",
       "description": "good / (good + scrap) from the counter deltas over the window.",
       "datasource": {
@@ -328,18 +348,28 @@
           "color": {
             "mode": "thresholds"
           },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 1,
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.6
+              },
+              {
+                "color": "green",
+                "value": 0.85
               }
             ]
-          },
-          "mappings": [],
-          "unit": "percentunit",
-          "decimals": 1
+          }
         },
         "overrides": []
       },
@@ -351,11 +381,11 @@
           "fields": "",
           "values": false
         },
-        "orientation": "vertical",
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75
       },
       "targets": [
         {
@@ -976,8 +1006,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "fixed",
-            "fixedColor": "semi-dark-orange"
+            "mode": "palette-classic"
           },
           "custom": {
             "lineWidth": 0,
@@ -993,9 +1022,67 @@
           "unit": "m",
           "decimals": 1
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reason"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "tool break": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "spindle overload": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "coolant low": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "setup": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "tool change": {
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "stopped (manual)": {
+                        "color": "text",
+                        "index": 5
+                      },
+                      "idle": {
+                        "color": "text",
+                        "index": 6
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^fault ",
+                      "result": {
+                        "color": "red",
+                        "index": 7
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "options": {
+        "colorByField": "reason",
         "orientation": "horizontal",
         "showValue": "always",
         "stacking": "none",
@@ -1031,7 +1118,7 @@
       "id": 41,
       "type": "barchart",
       "title": "Downtime by occurrence",
-      "description": "The same episodes counted instead of timed. The two rankings disagreeing is the useful part: many short stops is a different problem from one long one.",
+      "description": "The same episodes counted instead of timed. The two rankings disagreeing is the useful part: many short stops is a different problem from one long one. Bars carry the state timeline's colours, so red is the same red as a FAULT.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${DS_TIMESCALEDB}"
@@ -1045,8 +1132,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "fixed",
-            "fixedColor": "semi-dark-blue"
+            "mode": "palette-classic"
           },
           "custom": {
             "lineWidth": 0,
@@ -1061,9 +1147,67 @@
           "mappings": [],
           "decimals": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reason"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "tool break": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "spindle overload": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "coolant low": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "setup": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "tool change": {
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "stopped (manual)": {
+                        "color": "text",
+                        "index": 5
+                      },
+                      "idle": {
+                        "color": "text",
+                        "index": 6
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^fault ",
+                      "result": {
+                        "color": "red",
+                        "index": 7
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "options": {
+        "colorByField": "reason",
         "orientation": "horizontal",
         "showValue": "always",
         "stacking": "none",
@@ -1119,6 +1263,68 @@
           "mappings": []
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reason"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "tool break": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "spindle overload": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "coolant low": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "setup": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "tool change": {
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "stopped (manual)": {
+                        "color": "text",
+                        "index": 5
+                      },
+                      "idle": {
+                        "color": "text",
+                        "index": 6
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^fault ",
+                      "result": {
+                        "color": "red",
+                        "index": 7
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byRegexp",

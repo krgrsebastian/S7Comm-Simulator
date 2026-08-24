@@ -648,7 +648,7 @@ What is on it:
 
 | Row | Panels |
 |---|---|
-| Right now | state, OEE, availability, quality, active fault, parts in window |
+| Right now | state, OEE, availability, quality (as gauges, markers at 60% and 85%), active fault, parts in window |
 | State and faults | state timeline, fault log |
 | Process parameters | the three percentages, spindle speed + feed rate, spindle temperature + coolant pressure |
 | Why the machine was not producing | downtime Pareto by duration, the same by occurrence, and the arithmetic as a table |
@@ -661,8 +661,17 @@ window than "what is this machine doing".
 **The downtime Pareto** names a FAULT episode by the code that caused it, so
 `tool break` and `spindle overload` are separate reasons rather than one red
 bucket, and the two rankings disagree on purpose: many short stops is a
-different problem from one long one. Two things about how the episodes are
-built:
+different problem from one long one.
+
+Its bars take the **state timeline's colours** — grey for a manual stop, yellow
+for setup, orange for a tool change, red for any fault code — through
+`options.colorByField: "reason"` plus value mappings on the `reason` field, with
+a regex mapping so an unmapped code still reads as a fault instead of falling
+back to grey. The same mappings colour the reason column of the table below, so
+a bar's colour is decodable without a legend. Red on the Pareto is the same red
+as a FAULT on the timeline.
+
+Two things about how the episodes are built:
 
 - State and `fault_code` are bucketed together before the reason is resolved,
   because the `s7comm` input carries no source timestamp — sibling tags land
