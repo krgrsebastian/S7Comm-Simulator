@@ -360,6 +360,44 @@ it.
 
 ## Andon dashboard
 
+Two blocks in one dashboard. On top a **Plant Status** board in the shape of the
+Webasto PULSE concept: one column per machine, a running timer, and below it one
+colour-coded cell per status dimension. Underneath, the per-machine detail row
+(counters, tool life, spindle load, SPC chart) for drilling in.
+
+```
+        line_01        line_02        line_03
+      [ 3 minutes ]  [ 3 minutes ]  [ 15 minutes ]
+Betrieb    green          RED           green
+Störung    green          RED           yellow
+Qualität    RED          green          green
+Werkzeug   green         green           RED
+Kühlmittel green         green          yellow
+```
+
+The rows are the dimensions the CNC contract actually carries — no placeholder
+cells:
+
+| row | source | green | yellow | orange | red |
+|---|---|---|---|---|---|
+| Betrieb | `state` | running | — | tool change | fault |
+| Störung | `fault_code` | 0 | 102 coolant low | — | 101 / 103 |
+| Qualität | `measurement.diameter_mm` | in tolerance | — | — | out of tolerance |
+| Werkzeug | `tool.life_pct` | > 30 % | 15–30 % | — | < 15 % |
+| Kühlmittel | `coolant.level_pct` | > 20 % | ≤ 20 % | — | — |
+
+A missing value renders transparent rather than green, so "no data" never reads
+as "fine". The timer counts seconds since the last change of `fault_active`, so
+it reads as time-since-recovery on a healthy machine and as fault duration on a
+faulted one.
+
+Two Grafana details worth knowing if you adapt it: the status column is a single
+`stat` panel with `reduceOptions.values: true`, `textMode: "name"` and
+`orientation: "horizontal"` — one tile per returned row, label shown, colour from
+thresholds. `orientation` is the opposite of what it sounds like: `vertical`
+puts the tiles side by side, `horizontal` stacks them as rows.
+
+
 `grafana/andon-cnc.json` — import it, choose your historian when the import
 dialog asks for **TimescaleDB**, then pick machines in **Maschine**; the board
 grows a tile and a detail row per selection.

@@ -34,15 +34,158 @@
   },
   "panels": [
     {
-      "id": 100,
+      "id": 200,
       "type": "row",
-      "title": "Andon",
+      "title": "Plant Status — CNC",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 201,
+      "type": "stat",
+      "title": "$machine",
+      "datasource": "${DS_TIMESCALEDB}",
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "repeat": "machine",
+      "repeatDirection": "h",
+      "maxPerRow": 3,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "text": {
+          "valueSize": 34
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^value$/",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": "${DS_TIMESCALEDB}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH f AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_active' AND $__timeFilter(v.ts)) SELECT now() AS \"time\", extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS value FROM f WHERE prev IS NOT NULL AND value_num <> prev",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 202,
+      "type": "stat",
+      "title": "",
+      "datasource": "${DS_TIMESCALEDB}",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 4
+      },
+      "repeat": "machine",
+      "repeatDirection": "h",
+      "maxPerRow": 3,
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 1
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 3
+              },
+              {
+                "color": "transparent",
+                "value": 4
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "textMode": "name",
+        "text": {
+          "titleSize": 18
+        },
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^value$/",
+          "values": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": "${DS_TIMESCALEDB}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1) SELECT metric, value FROM (SELECT 1 AS ord, 'Betrieb' AS metric, CASE WHEN st=30 THEN 3 WHEN st=70 THEN 2 WHEN st=10 THEN 0 ELSE 4 END AS value FROM s UNION ALL SELECT 2, 'Störung', CASE WHEN fc IN (101,103) THEN 3 WHEN fc=102 THEN 1 WHEN fc IS NULL THEN 4 ELSE 0 END FROM s UNION ALL SELECT 3, 'Qualität', CASE WHEN dia IS NULL THEN 4 WHEN abs(dia-25.0)>0.05 THEN 3 ELSE 0 END FROM s UNION ALL SELECT 4, 'Werkzeug', CASE WHEN tl IS NULL THEN 4 WHEN tl<15 THEN 3 WHEN tl<30 THEN 1 ELSE 0 END FROM s UNION ALL SELECT 5, 'Kühlmittel', CASE WHEN cl IS NULL THEN 4 WHEN cl<=20 THEN 1 ELSE 0 END FROM s) x ORDER BY x.ord",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Detail je Maschine",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
       },
       "panels": []
     },
@@ -55,7 +198,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 1
+        "y": 16
       },
       "fieldConfig": {
         "defaults": {
@@ -148,7 +291,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 21
       },
       "repeat": "machine",
       "panels": []
@@ -162,7 +305,7 @@
         "h": 4,
         "w": 5,
         "x": 0,
-        "y": 7
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -252,7 +395,7 @@
         "h": 4,
         "w": 5,
         "x": 5,
-        "y": 7
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -332,7 +475,7 @@
         "h": 4,
         "w": 3,
         "x": 10,
-        "y": 7
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -386,7 +529,7 @@
         "h": 4,
         "w": 3,
         "x": 13,
-        "y": 7
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -440,7 +583,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 7
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -500,7 +643,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 7
+        "y": 22
       },
       "fieldConfig": {
         "defaults": {
@@ -559,7 +702,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 26
       },
       "fieldConfig": {
         "defaults": {
