@@ -25,8 +25,8 @@
         "includeAll": true,
         "refresh": 2,
         "sort": 1,
-        "query": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
-        "definition": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
+        "query": "SELECT DISTINCT subltree(l.path, greatest(nlevel(l.path)-2, 0), nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
+        "definition": "SELECT DISTINCT subltree(l.path, greatest(nlevel(l.path)-2, 0), nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
         "current": {},
         "options": []
       }
