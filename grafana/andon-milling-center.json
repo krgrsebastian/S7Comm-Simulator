@@ -108,6 +108,18 @@
       "tooltip": "One CNC in detail: state, OEE, faults, process parameters",
       "type": "link",
       "url": "/d/cnc-detail/cnc-drill-down"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "SPC",
+      "tooltip": "Diameter capability, control charts and correlations",
+      "type": "link",
+      "url": "/d/cnc-spc/cnc-spc"
     }
   ]
 }

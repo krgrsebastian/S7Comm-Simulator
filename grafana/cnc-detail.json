@@ -38,6 +38,18 @@
       "tooltip": "The whole milling_center, one column per line",
       "type": "link",
       "url": "/d/andon-milling-center/andon"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "SPC",
+      "tooltip": "Diameter capability, control charts and correlations",
+      "type": "link",
+      "url": "/d/cnc-spc/cnc-spc"
     }
   ],
   "templating": {
@@ -688,108 +700,6 @@
       "panels": []
     },
     {
-      "id": 20,
-      "type": "timeseries",
-      "title": "Diameter per part (SPC)",
-      "description": "Nominal 25.000 mm +/-0.050. The diameter walks toward the upper limit as the tool wears and steps back at a tool change; a part outside tolerance is the only source of scrap on this profile.",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "${DS_TIMESCALEDB}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 12,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisPlacement": "auto",
-            "pointSize": 5,
-            "lineInterpolation": "linear",
-            "gradientMode": "none",
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 24.93,
-            "axisSoftMax": 25.07
-          },
-          "mappings": [],
-          "unit": "lengthmm",
-          "min": 24.93,
-          "max": 25.07
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*tolerance"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    8,
-                    6
-                  ]
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 1
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "${DS_TIMESCALEDB}"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS \"diameter\",\n       25.05 AS \"upper tolerance\", 24.95 AS \"lower tolerance\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = 'measurement' AND g.name = 'diameter_mm'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "id": 21,
       "type": "timeseries",
       "title": "Spindle load, tool life, coolant level",
@@ -799,7 +709,7 @@
         "uid": "${DS_TIMESCALEDB}"
       },
       "gridPos": {
-        "x": 12,
+        "x": 0,
         "y": 14,
         "w": 12,
         "h": 7
@@ -871,8 +781,8 @@
         "uid": "${DS_TIMESCALEDB}"
       },
       "gridPos": {
-        "x": 0,
-        "y": 21,
+        "x": 12,
+        "y": 14,
         "w": 12,
         "h": 7
       },
@@ -952,15 +862,15 @@
       "id": 23,
       "type": "timeseries",
       "title": "Spindle temperature and coolant pressure",
-      "description": "Coolant pressure is on the right axis. It is nominally 4.5 bar and a far more capable process than the diameter -- deliberately, so the two have different Cpk.",
+      "description": "Coolant pressure is on the right axis. The milled diameter and its capability live on the SPC dashboard, linked at the top.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${DS_TIMESCALEDB}"
       },
       "gridPos": {
-        "x": 12,
+        "x": 0,
         "y": 21,
-        "w": 12,
+        "w": 24,
         "h": 7
       },
       "fieldConfig": {
@@ -1036,13 +946,269 @@
       ]
     },
     {
+      "id": 104,
+      "type": "row",
+      "title": "Why the machine was not producing",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 40,
+      "type": "barchart",
+      "title": "Downtime by duration",
+      "description": "Every non-producing state in the window, ranked by how much time it cost. A FAULT episode is named by the code that caused it, so tool break and spindle overload are separate reasons rather than one red bucket.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "semi-dark-orange"
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "m",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0,
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.name = 'state'      THEN v.value_num END) AS st,\n         max(CASE WHEN g.name = 'fault_code' THEN v.value_num END) AS code\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name IN ('state','fault_code')\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\nr AS (\n  SELECT ts,\n         CASE\n           WHEN st = 30 THEN CASE code::int\n                               WHEN 101 THEN 'tool break'\n                               WHEN 103 THEN 'spindle overload'\n                               WHEN 102 THEN 'coolant low'\n                               ELSE 'fault ' || coalesce(code::int::text, '?') END\n           WHEN st = 20 THEN 'setup'\n           WHEN st = 40 THEN 'stopped (manual)'\n           WHEN st = 0  THEN 'idle'\n           WHEN st = 70 THEN 'tool change'\n           ELSE 'running'\n         END AS reason\n  FROM s\n  WHERE st IS NOT NULL\n),\nseq AS (\n  SELECT ts, reason, lead(ts) OVER (ORDER BY ts) AS next_ts FROM r\n),\nisl AS (\n  SELECT reason,\n         extract(epoch FROM (coalesce(next_ts, now()) - ts)) AS secs,\n         row_number() OVER (ORDER BY ts)\n       - row_number() OVER (PARTITION BY reason ORDER BY ts) AS grp\n  FROM seq\n),\nep AS (\n  SELECT reason, grp, sum(secs) AS secs FROM isl GROUP BY reason, grp\n),\nagg AS (\n  SELECT reason, sum(secs) AS secs, count(*) AS episodes\n  FROM ep WHERE reason <> 'running'\n  GROUP BY reason\n)\nSELECT reason AS \"reason\", secs / 60.0 AS \"minutes\"\nFROM agg\nORDER BY secs DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "barchart",
+      "title": "Downtime by occurrence",
+      "description": "The same episodes counted instead of timed. The two rankings disagreeing is the useful part: many short stops is a different problem from one long one.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "semi-dark-blue"
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0,
+        "barWidth": 0.7,
+        "groupWidth": 0.7,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.name = 'state'      THEN v.value_num END) AS st,\n         max(CASE WHEN g.name = 'fault_code' THEN v.value_num END) AS code\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name IN ('state','fault_code')\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\nr AS (\n  SELECT ts,\n         CASE\n           WHEN st = 30 THEN CASE code::int\n                               WHEN 101 THEN 'tool break'\n                               WHEN 103 THEN 'spindle overload'\n                               WHEN 102 THEN 'coolant low'\n                               ELSE 'fault ' || coalesce(code::int::text, '?') END\n           WHEN st = 20 THEN 'setup'\n           WHEN st = 40 THEN 'stopped (manual)'\n           WHEN st = 0  THEN 'idle'\n           WHEN st = 70 THEN 'tool change'\n           ELSE 'running'\n         END AS reason\n  FROM s\n  WHERE st IS NOT NULL\n),\nseq AS (\n  SELECT ts, reason, lead(ts) OVER (ORDER BY ts) AS next_ts FROM r\n),\nisl AS (\n  SELECT reason,\n         extract(epoch FROM (coalesce(next_ts, now()) - ts)) AS secs,\n         row_number() OVER (ORDER BY ts)\n       - row_number() OVER (PARTITION BY reason ORDER BY ts) AS grp\n  FROM seq\n),\nep AS (\n  SELECT reason, grp, sum(secs) AS secs FROM isl GROUP BY reason, grp\n),\nagg AS (\n  SELECT reason, sum(secs) AS secs, count(*) AS episodes\n  FROM ep WHERE reason <> 'running'\n  GROUP BY reason\n)\nSELECT reason AS \"reason\", episodes AS \"occurrences\"\nFROM agg\nORDER BY episodes DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "type": "table",
+      "title": "Downtime reasons",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "description": "The Pareto arithmetic behind the two charts: how often, how long in total, how long on average, and the running share of all downtime.",
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "total|mean each"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "share"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cumulative"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.name = 'state'      THEN v.value_num END) AS st,\n         max(CASE WHEN g.name = 'fault_code' THEN v.value_num END) AS code\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name IN ('state','fault_code')\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\nr AS (\n  SELECT ts,\n         CASE\n           WHEN st = 30 THEN CASE code::int\n                               WHEN 101 THEN 'tool break'\n                               WHEN 103 THEN 'spindle overload'\n                               WHEN 102 THEN 'coolant low'\n                               ELSE 'fault ' || coalesce(code::int::text, '?') END\n           WHEN st = 20 THEN 'setup'\n           WHEN st = 40 THEN 'stopped (manual)'\n           WHEN st = 0  THEN 'idle'\n           WHEN st = 70 THEN 'tool change'\n           ELSE 'running'\n         END AS reason\n  FROM s\n  WHERE st IS NOT NULL\n),\nseq AS (\n  SELECT ts, reason, lead(ts) OVER (ORDER BY ts) AS next_ts FROM r\n),\nisl AS (\n  SELECT reason,\n         extract(epoch FROM (coalesce(next_ts, now()) - ts)) AS secs,\n         row_number() OVER (ORDER BY ts)\n       - row_number() OVER (PARTITION BY reason ORDER BY ts) AS grp\n  FROM seq\n),\nep AS (\n  SELECT reason, grp, sum(secs) AS secs FROM isl GROUP BY reason, grp\n),\nagg AS (\n  SELECT reason, sum(secs) AS secs, count(*) AS episodes\n  FROM ep WHERE reason <> 'running'\n  GROUP BY reason\n),\ntot AS (SELECT sum(secs) AS t FROM agg)\nSELECT agg.reason AS \"reason\",\n       agg.episodes AS \"occurrences\",\n       agg.secs AS \"total\",\n       agg.secs / agg.episodes AS \"mean each\",\n       agg.secs / tot.t AS \"share\",\n       sum(agg.secs) OVER (ORDER BY agg.secs DESC\n                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) / tot.t AS \"cumulative\"\nFROM agg, tot\nORDER BY agg.secs DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 103,
       "type": "row",
       "title": "Output",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 44,
         "w": 24,
         "h": 1
       },
@@ -1059,7 +1225,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 45,
         "w": 24,
         "h": 6
       },

@@ -620,8 +620,29 @@ What is on it:
 |---|---|
 | Right now | state, OEE, availability, quality, active fault, parts in window |
 | State and faults | state timeline, fault log |
-| Process parameters | diameter (SPC) with both tolerance lines, the three percentages, spindle speed + feed rate, spindle temperature + coolant pressure |
+| Process parameters | the three percentages, spindle speed + feed rate, spindle temperature + coolant pressure |
+| Why the machine was not producing | downtime Pareto by duration, the same by occurrence, and the arithmetic as a table |
 | Output | the raw counters |
+
+The diameter and its capability used to live here; they moved to their own SPC
+board (below), because capability is a different question asked over a longer
+window than "what is this machine doing".
+
+**The downtime Pareto** names a FAULT episode by the code that caused it, so
+`tool break` and `spindle overload` are separate reasons rather than one red
+bucket, and the two rankings disagree on purpose: many short stops is a
+different problem from one long one. Two things about how the episodes are
+built:
+
+- State and `fault_code` are bucketed together before the reason is resolved,
+  because the `s7comm` input carries no source timestamp — sibling tags land
+  close together but not on the identical `ts`.
+- Islands are numbered over *every* reason including `running`. Number them
+  only over the downtime rows and two faults separated by production merge into
+  one episode, which quietly halves the occurrence count.
+- An episode shorter than the poll interval can be missed entirely. On a 1 s
+  poll that is sub-second stops; it is worth knowing before treating the
+  occurrence count as exact.
 
 Two things worth knowing if you edit it:
 
@@ -637,6 +658,48 @@ Two things worth knowing if you edit it:
 PULSE-style plant-status matrix for *several* CNCs at once, with a multi-select
 `machine` variable. Keep it if you want the matrix; `cnc-detail` is the one to
 open from the Andon board for a single machine.
+
+## CNC SPC
+
+`grafana/cnc-spc.json` (uid `cnc-spc`) is statistical process control on the
+milled diameter, and the third corner of the link triangle: the Andon board and
+the drill-down both reach it, and it links back to both. The drill-down passes
+its selected machine through (`includeVars`), so stepping from one to the other
+keeps the machine you were looking at.
+
+| Row | Panels |
+|---|---|
+| Capability | Cp, Cpk, mean, sigma, parts measured, out of spec |
+| Individuals and moving range | I-chart with control *and* spec limits, machine state on the same time axis, mR chart, tool life against diameter |
+| What the diameter correlates with | deviation from nominal per band of tool life, spindle load, coolant pressure |
+| Detail | out-of-spec parts with the conditions that made them, and a per-tool summary |
+
+**One part is one sample.** The SPC unit is a finished part, keyed on
+`part_count` — not on the sample rate. The measurement is *held* on the wire
+until the next part, so sampling by time would count the same part a dozen
+times and collapse sigma. The query buckets the tags, pivots them, then takes
+the first row of each `part_count`.
+
+**Sigma is the moving-range estimate, mR/1.128**, not the standard deviation of
+the column. That is the standard estimate for an individuals chart, and here it
+matters more than usual: the profile's true short-term sigma is 0.008 mm, and
+mR/1.128 recovers 0.0084 while the plain standard deviation of the same parts
+reads 0.0138 because it swallows the tool-wear drift. Cp near 2.0 with Cpk near
+1.1 is the honest summary of this process: the spread is fine, the mean is
+walking.
+
+**The correlations are bars, not a scatter.** `xychart` never finishes loading
+in Grafana 13.2 — the panel sits on "Loading plugin panel..." forever — so each
+relationship is shown as the mean deviation from nominal per band of the other
+value. Two reasons that turned out better than a scatter anyway: absolute
+diameter on a zero-based bar axis hides everything (the whole signal is in the
+fourth decimal, so every bar looks 25 mm tall), and in micrometres against the
+50 µm tolerance line the tool-wear drift reads straight off the chart —
+`90-100 %` tool life sits at nominal, `0-10 %` at +34 µm.
+
+Spindle load correlates too, *through* tool wear rather than by causing
+anything, and coolant pressure is the control case: a deliberately capable
+process, so its bars stay flat. Nothing on this board is a causal claim.
 
 ### Checking a dashboard by eye
 

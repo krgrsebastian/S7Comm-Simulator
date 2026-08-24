@@ -1,0 +1,1678 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_TIMESCALEDB",
+      "label": "TimescaleDB",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [],
+  "uid": "cnc-spc",
+  "title": "CNC — SPC",
+  "description": "Statistical process control on the milled diameter: I-MR charts, capability, and what the diameter correlates with.",
+  "tags": [
+    "cnc",
+    "milling_center",
+    "spc"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Back to Andon board",
+      "tooltip": "The whole milling_center, one column per line",
+      "type": "link",
+      "url": "/d/andon-milling-center/andon"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "CNC drill-down",
+      "tooltip": "State, OEE, faults and process parameters for this machine",
+      "type": "link",
+      "url": "/d/cnc-detail/cnc-drill-down"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "machine",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_TIMESCALEDB}"
+        },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "hide": 0,
+        "options": [],
+        "current": {},
+        "definition": "CNC assets in the historian",
+        "query": "SELECT subltree(l.path, nlevel(l.path) - 2, nlevel(l.path))::text AS __text,\n       l.path::text AS __value\nFROM umh.location l\n  JOIN umh.topic t ON t.location_id = l.location_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\nWHERE g.data_contract_name = '_cnc'\nGROUP BY l.path\nORDER BY 1"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Capability",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Cp",
+      "description": "Spec width over the process spread: (USL-LSL)/(6 sigma). It ignores where the process sits, so Cp stays high while the tool wears the mean off centre. Sigma is the moving-range estimate, mR/1.128, not the sample standard deviation.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.0
+              },
+              {
+                "color": "green",
+                "value": 1.33
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT (25.05 - 24.95) / (6 * sigma) AS value FROM lim",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cpk",
+      "description": "Capability against the nearer spec limit. This is the one that falls as the tool wears the diameter toward the upper limit. Below 1.00 the process is producing out-of-spec parts.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.0
+              },
+              {
+                "color": "green",
+                "value": 1.33
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT least(25.05 - mu, mu - 24.95) / (3 * sigma) AS value FROM lim",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Mean",
+      "description": "Mean of the per-part diameters in the window. Nominal is 25.0000 mm.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "lengthmm",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT mu AS value FROM lim",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Sigma (mR/1.128)",
+      "description": "Short-term spread estimated from the moving range, which is the standard estimate for an individuals chart. The profile's true short-term sigma is 0.008 mm; anything much larger means the wear drift is leaking into it.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "lengthmm",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT sigma AS value FROM lim",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Parts measured",
+      "description": "Number of finished parts in the window. One part = one SPC sample, keyed on part_count, not on the sample rate.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT n AS value FROM lim",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Out of spec",
+      "description": "Parts outside 25.000 +/- 0.050 mm. On this profile an out-of-tolerance part is the only source of scrap, so this reconciles with scrap_count.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n)\nSELECT count(*) AS value FROM p WHERE dia > 25.05 OR dia < 24.95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Individuals and moving range",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Diameter per part — individuals chart",
+      "description": "One point per finished part. Solid grey is the process mean, dashed grey the 3-sigma control limits (what the process does), dashed red the specification limits (what the drawing demands). Control limits inside the spec limits is the whole point of capability.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "mappings": [],
+          "unit": "lengthmm",
+          "min": 24.939999999999998,
+          "max": 25.060000000000002
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diameter"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mean"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UCL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-blue"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "LCL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-blue"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "USL (spec)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "LSL (spec)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT p.ts AS \"time\", p.dia AS \"diameter\",\n       lim.mu AS \"mean\", lim.mu + 3 * lim.sigma AS \"UCL\", lim.mu - 3 * lim.sigma AS \"LCL\",\n       25.05 AS \"USL (spec)\", 24.95 AS \"LSL (spec)\"\nFROM p, lim\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "state-timeline",
+      "title": "Machine state, same time axis",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "description": "Read this against the chart above: a step in the diameter that lines up with a tool change is wear being reset, while an excursion during setup or a fault is a different story.",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 90
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "idle": {
+                  "color": "text",
+                  "index": 0
+                },
+                "running": {
+                  "color": "green",
+                  "index": 1
+                },
+                "setup": {
+                  "color": "yellow",
+                  "index": 2
+                },
+                "FAULT": {
+                  "color": "red",
+                  "index": 3
+                },
+                "stopped": {
+                  "color": "text",
+                  "index": 4
+                },
+                "tool change": {
+                  "color": "orange",
+                  "index": 5
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "center",
+        "rowHeight": 0.9,
+        "perPage": 20,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\",\n       CASE v.value_num::int\n            WHEN 0   THEN 'idle'\n            WHEN 10  THEN 'running'\n            WHEN 20  THEN 'setup'\n            WHEN 30  THEN 'FAULT'\n            WHEN 40  THEN 'stopped'\n            WHEN 70  THEN 'tool change'\n            ELSE 'code ' || v.value_num::int::text END AS \"state\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = '' AND g.name = 'state'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Moving range",
+      "description": "The part-to-part change. This is what sigma is estimated from, and a point above its UCL means the process jumped rather than drifted -- a tool change, a new batch of material, an operator intervention.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "mappings": [],
+          "unit": "lengthmm"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "moving range"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mean range"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UCL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT mr.ts AS \"time\", mr.range AS \"moving range\",\n       lim.mrbar AS \"mean range\", 3.267 * lim.mrbar AS \"UCL\"\nFROM mr, lim\nWHERE mr.range IS NOT NULL\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Tool life against diameter",
+      "description": "The mechanism, over time: the diameter walks up as tool life runs down, and steps back at the change. Tool life is on the right axis.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "mappings": [],
+          "unit": "lengthmm"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diameter"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tool life"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-orange"
+                }
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n)\nSELECT ts AS \"time\", dia AS \"diameter\", tool_life AS \"tool life\"\nFROM p\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "What the diameter correlates with",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "barchart",
+      "title": "Deviation from nominal per tool-life band",
+      "description": "Bar height is how far the mean diameter of that band sits above nominal, in micrometres; the dashed line is the 50 um tolerance. A fresh tool is 100%, so the bars should climb from right to left as the tool wears. Hover for how many parts a band holds -- the thin ones are the noisy ones.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 35
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "axisPlacement": "auto",
+            "axisLabel": "deviation from nominal",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "unit": "suffix:µm",
+          "decimals": 1,
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "parts"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nb AS (\n  SELECT width_bucket(tool_life, 0, 100, 10) AS bucket, dia\n  FROM p WHERE tool_life IS NOT NULL\n)\nSELECT (0 + (bucket - 1) * 10)::text || '-'\n       || (0 + bucket * 10)::text || ' %' AS \"tool life\",\n       avg(dia - 25.0) * 1000 AS \"mean deviation\",\n       count(*) AS \"parts\"\nFROM b\nGROUP BY bucket\nORDER BY bucket",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "barchart",
+      "title": "Deviation from nominal per spindle-load band",
+      "description": "Load rises as the tool wears, so this climbs too -- through tool wear, not because load moves the diameter. Correlation on this board is not a causal claim.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 35
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "axisPlacement": "auto",
+            "axisLabel": "deviation from nominal",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "unit": "suffix:µm",
+          "decimals": 1,
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "parts"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nb AS (\n  SELECT width_bucket(load_pct, 40, 100, 6) AS bucket, dia\n  FROM p WHERE load_pct IS NOT NULL\n)\nSELECT (40 + (bucket - 1) * 10)::text || '-'\n       || (40 + bucket * 10)::text || ' %' AS \"spindle load\",\n       avg(dia - 25.0) * 1000 AS \"mean deviation\",\n       count(*) AS \"parts\"\nFROM b\nGROUP BY bucket\nORDER BY bucket",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "barchart",
+      "title": "Deviation from nominal per coolant-pressure band",
+      "description": "The control case. Coolant pressure is a deliberately capable, stable process, so these bars should be flat. If they ever slope, something changed in the machine rather than in the tool.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 35
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "axisPlacement": "auto",
+            "axisLabel": "deviation from nominal",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "unit": "suffix:µm",
+          "decimals": 1,
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "parts"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "vertical",
+        "showValue": "auto",
+        "stacking": "none",
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0,
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "fullHighlight": false,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nb AS (\n  SELECT width_bucket(pressure, 4.2, 4.8, 5) AS bucket, dia\n  FROM p WHERE pressure IS NOT NULL\n)\nSELECT (4.2 + (bucket - 1) * 0.1)::text || '-'\n       || (4.2 + bucket * 0.1)::text || ' bar' AS \"coolant pressure\",\n       avg(dia - 25.0) * 1000 AS \"mean deviation\",\n       count(*) AS \"parts\"\nFROM b\nGROUP BY bucket\nORDER BY bucket",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Detail",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "Out-of-spec parts, with the conditions that made them",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "description": "Every part outside tolerance, newest first, with the process values at the moment it was measured. This is where a correlation becomes a diagnosis: the same tool number and a high tool-life reading on every row points at the tool, not the machine.",
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diameter"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "lengthmm"
+              },
+              {
+                "id": "decimals",
+                "value": 4
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deviation"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "lengthmm"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "spindle load %"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "coolant bar"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "time",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n)\nSELECT ts AS \"time\", part::int AS \"part\",\n       dia AS \"diameter\", (dia - 25.0) AS \"deviation\",\n       tool_no::int AS \"tool\", tool_life::int AS \"tool life %\",\n       load_pct AS \"spindle load %\", pressure AS \"coolant bar\",\n       CASE state::int WHEN 10 THEN 'running' WHEN 70 THEN 'tool change'\n                       WHEN 20 THEN 'setup' WHEN 30 THEN 'FAULT'\n                       WHEN 40 THEN 'stopped' ELSE 'code ' || state::int::text END AS \"state\"\nFROM p\nWHERE dia > 25.05 OR dia < 24.95\nORDER BY ts DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "table",
+      "title": "Per tool",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "description": "The same parts grouped by tool number: how many parts each tool made, where it centred, and its own Cpk. A single bad tool shows up here and nowhere else.",
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Cpk"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1.0
+                    },
+                    {
+                      "color": "green",
+                      "value": 1.33
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "out of spec"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "tool",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (\n  SELECT time_bucket('5 seconds', v.ts) AS ts,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'part_count'   THEN v.value_num END) AS part,\n         max(CASE WHEN g.virtual_path = 'measurement' AND g.name = 'diameter_mm'  THEN v.value_num END) AS dia,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'life_pct'     THEN v.value_num END) AS tool_life,\n         max(CASE WHEN g.virtual_path = 'tool'        AND g.name = 'number'       THEN v.value_num END) AS tool_no,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'load_pct'     THEN v.value_num END) AS load_pct,\n         max(CASE WHEN g.virtual_path = 'spindle'     AND g.name = 'temp_c'       THEN v.value_num END) AS temp_c,\n         max(CASE WHEN g.virtual_path = 'coolant'     AND g.name = 'pressure_bar' THEN v.value_num END) AS pressure,\n         max(CASE WHEN g.virtual_path = ''            AND g.name = 'state'        THEN v.value_num END) AS state\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND $__timeFilter(v.ts)\n  GROUP BY 1\n),\np AS (\n  SELECT DISTINCT ON (part) part, ts, dia, tool_life, tool_no, load_pct, temp_c, pressure, state\n  FROM s\n  WHERE part IS NOT NULL AND dia IS NOT NULL\n  ORDER BY part, ts\n),\nmr AS (\n  SELECT part, ts, dia, abs(dia - lag(dia) OVER (ORDER BY part)) AS range\n  FROM p\n),\nlim AS (\n  SELECT avg(dia) AS mu,\n         avg(range) AS mrbar,\n         avg(range) / 1.128 AS sigma,\n         count(*) AS n\n  FROM mr\n)\nSELECT p.tool_no::int AS \"tool\",\n       count(*) AS \"parts\",\n       round(avg(p.dia)::numeric, 4) AS \"mean\",\n       round(min(p.dia)::numeric, 4) AS \"min\",\n       round(max(p.dia)::numeric, 4) AS \"max\",\n       count(*) FILTER (WHERE p.dia > 25.05 OR p.dia < 24.95) AS \"out of spec\",\n       round((least(25.05 - avg(p.dia), avg(p.dia) - 24.95)\n              / (3 * max(lim.sigma)))::numeric, 2) AS \"Cpk\"\nFROM p, lim\nGROUP BY p.tool_no\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
