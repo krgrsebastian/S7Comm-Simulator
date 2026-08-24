@@ -330,6 +330,26 @@ does not exist yet.) After that they are idempotent no-ops. An
 existing historian database already has the schema, so this only bites on a first
 deploy.
 
+### Missing helper functions
+
+`umh.get_topic_id()`, `umh.to_ltree_path()` and the two write-side guards are
+created by the bridge's `init_statement`, so a database set up by an older
+bridge — or one whose init aborted part-way — can be missing them. Check with
+`\df umh.*` **while connected to the historian database**; run it against
+`postgres` and you get an empty list no matter what.
+
+`historian/helpers.sql` installs all four. Every statement is `CREATE OR
+REPLACE`, no table is touched, and it is safe to re-run against a live
+historian:
+
+```bash
+docker exec -i <timescaledb-container> psql -U postgres -d umh < historian/helpers.sql
+```
+
+The dashboard does not need them — the panels join the four tables directly —
+but `to_ltree_path()` is the canonical normaliser for comparing a hand-written
+location path against a stored one.
+
 ### Watch out for a tag pinned to the wrong datatype
 
 `umh.tag.value_type` is pinned on a tag's first write and a trigger rejects any
