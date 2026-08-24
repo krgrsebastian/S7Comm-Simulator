@@ -384,8 +384,13 @@ machine, repeated horizontally), then a repeated detail row per machine with
 status, active alarm, good/scrap counts, tool life, spindle load, and the SPC
 chart.
 
-Panels query by `umh.get_topic_id('$machine', '<group>', 'cnc', '<tag>')`, which
-is a point lookup with no joins.
+Panels resolve a tag by joining `value_cnc → topic → tag → location` and
+filtering on `l.path = '$machine'::ltree` plus `data_contract_name`,
+`virtual_path` and `name`. There is a helper, `umh.get_topic_id()`, that does the
+same as a point lookup with no joins — but the panels deliberately do not use it.
+A historian database is created by whichever bridges have run against it, so its
+function set is not guaranteed; the joins only need the four tables, which every
+bridge creates.
 
 Colour appears only where it carries meaning: green for running, orange for a
 warning or a tool change, red for a stopping fault. Idle, setup and stopped are

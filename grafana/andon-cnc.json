@@ -131,7 +131,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'state' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ],
@@ -238,7 +238,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'state') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'state' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -318,7 +318,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'fault_code') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_code' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -372,7 +372,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'good_count') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'good_count' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -426,7 +426,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', '', 'cnc', 'scrap_count') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'scrap_count' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -486,7 +486,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', 'tool', 'cnc', 'life_pct') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = 'tool' AND g.name = 'life_pct' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -545,7 +545,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', 'spindle', 'cnc', 'load_pct') AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS value FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = 'spindle' AND g.name = 'load_pct' AND $__timeFilter(v.ts) ORDER BY v.ts DESC LIMIT 1",
           "refId": "A"
         }
       ]
@@ -613,7 +613,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT ts AS \"time\", value_num AS value FROM (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v WHERE v.topic_id = umh.get_topic_id('$machine', 'measurement', 'cnc', 'diameter_mm') AND $__timeFilter(v.ts)) s WHERE prev IS NULL OR value_num <> prev ORDER BY ts",
+          "rawSql": "SELECT ts AS \"time\", value_num AS value FROM (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = '$machine'::ltree AND g.data_contract_name = '_cnc' AND g.virtual_path = 'measurement' AND g.name = 'diameter_mm' AND $__timeFilter(v.ts)) s WHERE prev IS NULL OR value_num <> prev ORDER BY ts",
           "refId": "A"
         }
       ]
