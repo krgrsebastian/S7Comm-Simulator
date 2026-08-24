@@ -541,6 +541,36 @@ single spine — and where the upstream station is not producing, the spine tear
 into red dashes labelled `NO FLOW`. It is the one place the design spends any
 boldness; everything else is hairlines and quiet type.
 
+**Clicking a card opens a detail modal**: the machine's state, a mini state
+timeline across the dashboard window, the six values that matter for that
+machine type, and — for a CNC — buttons through to the drill-down and the SPC
+board, which carry the machine and the time window with them. Oven and washing
+cards say plainly that no detail board exists for them yet rather than linking
+to a CNC board that would come up empty.
+
+Three things about how it is built:
+
+- **The modal is created on `document.body`, not inside the panel.** The panel's
+  content lives in a shadow root inside a Grafana grid item, and that grid item
+  carries a CSS transform, so `position: fixed` resolves against the panel
+  instead of the viewport — a modal built inside the panel is trapped in it. It
+  therefore also needs its own `<style>` element (id-guarded, so a remount does
+  not stack copies) and its own copy of the theme variables, which it cannot
+  inherit from the board.
+- **One delegated click listener on the board root**, attached in `onInit`.
+  `onRender` replaces only the root's `innerHTML`, so the root itself — and the
+  listener — survives every refresh.
+- **The mini timeline merges by state *tone*, not by state name.** An oven runs
+  charging / heating / soaking / quenching / discharging and all five are
+  producing, so naming them in the legend gives five identical green swatches:
+  one colour standing for five things. The legend reads `producing / setup /
+  not running / fault` and the exact phase stays in each segment's tooltip.
+
+The panel runs three queries: the station summary, a state history bucketed into
+48 buckets across the window, and the latest value of six tags per machine type.
+The tag list is a `VALUES` table joined onto `tag`, so adding a value to a modal
+is one row of SQL rather than another union leg.
+
 **The card answers one question: what is this machine doing right now.** The
 state is the largest thing on it, in its own colour, with a status dot ahead of
 it; a machine in FAULT additionally gets a red-washed card and a heavier red
