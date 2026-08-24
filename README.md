@@ -626,6 +626,56 @@ so rather than implying it was measured.
 `grafana/overview-milling-center.json` is the same data as three plain tables,
 if you prefer sortable columns over a wall display.
 
+## Shopfloor map — the same area as a plan
+
+`grafana/shopfloor-milling-center.json` (uid `shopfloor-milling-center`) is the
+second overview: the hall seen from above instead of as columns. Material enters
+at `goods in` on the left, each line runs left to right through mill → wash →
+harden, finished parts leave at `goods out`. Every machine is drawn as a
+schematic of the real thing — a mill with column, spindle and table; a washer
+with its drum and spray bar; a furnace with door and heating coils — so the plan
+reads as a shopfloor rather than a grid of identical boxes. The machine's state
+colours its outline, its status LED and its state word, and the conveyor between
+two machines tears into red dashes when the upstream station is not producing.
+
+**Clicking a machine opens the same detail modal as the Andon board.** The
+modal implementation and the three queries are *lifted out of
+`andon-milling-center.json` when this dashboard is generated*, so the two
+overviews cannot drift apart in how a click behaves — only the drawing differs.
+Editing the modal means editing the Andon board and regenerating this one.
+
+The machines are SVG `<g class="station" data-path="…">` groups, which is why
+the Andon board's delegated click handler works here unchanged: `closest()`
+walks up out of a nested `<path>` or `<rect>` to the group exactly as it does in
+HTML.
+
+Two notes if you change the drawing:
+
+- The svg is positioned `absolute` inside a `position: relative` wrapper. As a
+  flex item with an auto height, `height: 100%` on the svg has nothing to
+  resolve against, so it falls back to its aspect-ratio height and pushes the
+  legend out of the panel.
+- SVG text does not clip or ellipsise, so a long machine name simply draws over
+  the box border. The boxes are sized for the names in use and `clip()` is the
+  fallback; the full name stays in the group's tooltip either way.
+
+## Navigation
+
+Links go one way. Both overviews reach the two CNC boards, and those two reach
+each other as peers:
+
+```
+andon-milling-center ─┐                  ┌─> cnc-detail <──> cnc-spc
+                      ├─> CNC drill-down ┤
+shopfloor-…-center  ──┘        SPC       └─
+```
+
+No board carries a "back to overview" link. With two overviews there is no
+single right answer to which one a back button should return to, and two back
+buttons side by side is worse than none — the browser's own back button does
+the job. The modal's buttons and the header links both pass the machine and the
+time window on.
+
 ## CNC drill-down
 
 `grafana/cnc-detail.json` (uid `cnc-detail`) is the level below the Andon board:

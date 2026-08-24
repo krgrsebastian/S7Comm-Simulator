@@ -30,18 +30,6 @@
   "links": [
     {
       "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Back to Andon board",
-      "tooltip": "The whole milling_center, one column per line",
-      "type": "link",
-      "url": "/d/andon-milling-center/andon"
-    },
-    {
-      "asDropdown": false,
       "icon": "external link",
       "includeVars": true,
       "keepTime": true,
