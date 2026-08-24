@@ -380,6 +380,22 @@ The `machine` variable's `query` is a plain **string**. Written as the object
 form (`{rawSql: …}`) it survives an API POST but the import path stringifies it,
 and the query shows up as `[object Object]`.
 
+**Never wrap a multi-value variable in your own quotes.** The panels select the
+machine with
+
+```sql
+WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])
+```
+
+not `l.path = '$machine'::ltree`. For a multi-value variable Grafana's SQL
+formatter supplies the quotes itself (`'a','b','c'`), so wrapping it again yields
+`''a','b','c''` — Postgres reads the leading `''` as an empty string and then
+trips over the next token, reporting `syntax error at or near "umh"` for a path
+beginning with `umh`. `:sqlstring` plus `= ANY(ARRAY[...])` is correct for one
+value and for many, so it works in a repeated panel (one value per instance) and
+in the panel editor alike, where repeats are not applied and the variable still
+holds every selected value.
+
 No query contains a newline or an SQL comment, deliberately: some Grafana
 versions collapse a rawSql into one line, which turns a leading `--` comment into
 a comment over the whole statement.
