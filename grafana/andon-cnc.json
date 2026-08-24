@@ -47,74 +47,15 @@
       "panels": []
     },
     {
-      "id": 201,
-      "type": "stat",
-      "title": "$machine",
-      "datasource": "${DS_TIMESCALEDB}",
-      "gridPos": {
-        "h": 3,
-        "w": 8,
-        "x": 0,
-        "y": 1
-      },
-      "repeat": "machine",
-      "repeatDirection": "h",
-      "maxPerRow": 3,
-      "fieldConfig": {
-        "defaults": {
-          "unit": "clocks",
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "textMode": "value_and_name",
-        "text": {
-          "valueSize": 30,
-          "titleSize": 14
-        },
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": "${DS_TIMESCALEDB}",
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "WITH f AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_active' AND $__timeFilter(v.ts)) SELECT extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS \"time in this state\" FROM f WHERE prev IS NOT NULL AND value_num <> prev",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "id": 202,
       "type": "stat",
-      "title": "",
+      "title": "$machine",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 12,
         "w": 8,
         "x": 0,
-        "y": 4
+        "y": 1
       },
       "repeat": "machine",
       "repeatDirection": "h",
@@ -268,7 +209,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1) SELECT metric, value FROM (SELECT 1 AS ord, 'Operation' AS metric, CASE WHEN st IS NULL THEN 109 WHEN st=10 THEN 100 WHEN st=30 THEN 101 WHEN st=70 THEN 102 WHEN st=20 THEN 103 WHEN st IN (0,40) THEN 104 ELSE 109 END AS value FROM s UNION ALL SELECT 2, 'Fault', CASE WHEN fc IS NULL THEN 209 WHEN fc=0 THEN 200 WHEN fc=102 THEN 201 WHEN fc=101 THEN 202 WHEN fc=103 THEN 203 ELSE 209 END FROM s UNION ALL SELECT 3, 'Quality', CASE WHEN dia IS NULL THEN 309 WHEN abs(dia-25.0)>0.05 THEN 301 ELSE 300 END FROM s UNION ALL SELECT 4, 'Tool', CASE WHEN tl IS NULL THEN 409 WHEN tl<15 THEN 402 WHEN tl<30 THEN 401 ELSE 400 END FROM s UNION ALL SELECT 5, 'Coolant', CASE WHEN cl IS NULL THEN 509 WHEN cl<=20 THEN 501 ELSE 500 END FROM s) x ORDER BY x.ord",
+          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1), flank AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'state' AND $__timeFilter(v.ts)), dur AS (SELECT extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS secs FROM flank WHERE prev IS NOT NULL AND value_num <> prev), lbl AS (SELECT CASE WHEN secs IS NULL THEN 'Operation' WHEN secs < 60 THEN 'Operation · ' || secs || 's' WHEN secs < 3600 THEN 'Operation · ' || (secs/60) || 'm' ELSE 'Operation · ' || (secs/3600) || 'h ' || ((secs%3600)/60) || 'm' END AS op FROM dur) SELECT metric, value FROM (SELECT 1 AS ord, (SELECT op FROM lbl) AS metric, CASE WHEN st IS NULL THEN 109 WHEN st=10 THEN 100 WHEN st=30 THEN 101 WHEN st=70 THEN 102 WHEN st=20 THEN 103 WHEN st IN (0,40) THEN 104 ELSE 109 END AS value FROM s UNION ALL SELECT 2, 'Fault', CASE WHEN fc IS NULL THEN 209 WHEN fc=0 THEN 200 WHEN fc=102 THEN 201 WHEN fc=101 THEN 202 WHEN fc=103 THEN 203 ELSE 209 END FROM s UNION ALL SELECT 3, 'Quality', CASE WHEN dia IS NULL THEN 309 WHEN abs(dia-25.0)>0.05 THEN 301 ELSE 300 END FROM s UNION ALL SELECT 4, 'Tool', CASE WHEN tl IS NULL THEN 409 WHEN tl<15 THEN 402 WHEN tl<30 THEN 401 ELSE 400 END FROM s UNION ALL SELECT 5, 'Coolant', CASE WHEN cl IS NULL THEN 509 WHEN cl<=20 THEN 501 ELSE 500 END FROM s) x ORDER BY x.ord",
           "refId": "A"
         }
       ]
@@ -282,7 +223,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 14
       },
       "panels": []
     },
@@ -295,7 +236,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 18
+        "y": 15
       },
       "fieldConfig": {
         "defaults": {
@@ -388,7 +329,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 20
       },
       "repeat": "machine",
       "panels": []
@@ -402,7 +343,7 @@
         "h": 4,
         "w": 5,
         "x": 0,
-        "y": 24
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -492,7 +433,7 @@
         "h": 4,
         "w": 5,
         "x": 5,
-        "y": 24
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -572,7 +513,7 @@
         "h": 4,
         "w": 3,
         "x": 10,
-        "y": 24
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -626,7 +567,7 @@
         "h": 4,
         "w": 3,
         "x": 13,
-        "y": 24
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -680,7 +621,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 24
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -740,7 +681,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 24
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -799,7 +740,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 25
       },
       "fieldConfig": {
         "defaults": {

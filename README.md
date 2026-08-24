@@ -366,14 +366,14 @@ colour-coded cell per status dimension. Underneath, the per-machine detail row
 (counters, tool life, spindle load, SPC chart) for drilling in.
 
 ```
-              line_01              line_02              line_03
-        time in this state    time in this state   time in this state
-              15m                   01m                  15m
-Operation   running                FAULT                setup
-Fault       none                   tool break           none
-Quality     OUT OF TOLERANCE       in tolerance         in tolerance
-Tool        ok                     ok                   worn out
-Coolant     ok                     ok                   low
+                  line_01              line_02              line_03
+Operation · 4m    running
+Operation · 52s                        FAULT
+Operation · 30m                                             setup
+Fault             none                 tool break           none
+Quality           OUT OF TOLERANCE     in tolerance         in tolerance
+Tool              ok                   ok                   worn out
+Coolant           ok                   ok                   low
 ```
 
 **Every cell states its own condition in words**, with colour as reinforcement,
@@ -386,13 +386,15 @@ and colour, so a tile reads `Operation running`, `Operation FAULT`, `Tool worn o
 Grey means exactly one thing — `stopped`, spelled out. Genuinely missing data
 renders transparent and says `no data`. Those must never share a colour.
 
-The timer is labelled `time in this state` and shows how long the current
-condition has lasted — seconds since the last `fault_active` transition, in the
-`clocks` unit so it reads `01m`. Read together with the Operation row it is
-unambiguous: `FAULT` plus `time in this state 01m` means down for a minute. Two
-earlier labels failed here: `ohne Störung seit` was simply false on a faulted
-machine, and `Status seit` was vague enough that it had to be explained — which
-is the same defect in a milder form.
+**How long the state has lasted rides in the Operation row itself**, not in a
+tile of its own: `Operation · 52s` next to `FAULT` means down for 52 seconds. It
+is the time since the last change of `state`, so the label says exactly what it
+measures; falling back to the start of the dashboard window when the state has
+not changed within it. Three earlier attempts failed and are worth not
+repeating: a separate tile with a bare number (unlabelled), then
+`ohne Störung seit` (outright false on a faulted machine), then `Status seit`
+(vague enough that it had to be explained). A label that needs explaining is a
+defect, not a documentation task.
 
 The rows are the dimensions the CNC contract actually carries — no placeholder
 cells:
