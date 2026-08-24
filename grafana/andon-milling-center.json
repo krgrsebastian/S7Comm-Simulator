@@ -95,5 +95,19 @@
         }
       ]
     }
+  ],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "CNC drill-down",
+      "tooltip": "One CNC in detail: state, OEE, faults, process parameters",
+      "type": "link",
+      "url": "/d/cnc-detail/cnc-drill-down"
+    }
   ]
 }

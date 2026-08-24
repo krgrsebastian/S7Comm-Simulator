@@ -1,0 +1,1121 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_TIMESCALEDB",
+      "label": "TimescaleDB",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [],
+  "uid": "cnc-detail",
+  "title": "CNC — drill-down",
+  "description": "One CNC in detail: state, OEE, faults and process parameters. Reached from the milling_center Andon board.",
+  "tags": [
+    "cnc",
+    "milling_center"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-2h",
+    "to": "now"
+  },
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Back to Andon board",
+      "tooltip": "The whole milling_center, one column per line",
+      "type": "link",
+      "url": "/d/andon-milling-center/andon"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "machine",
+        "label": "Machine",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_TIMESCALEDB}"
+        },
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "hide": 0,
+        "options": [],
+        "current": {},
+        "definition": "CNC assets in the historian",
+        "query": "SELECT subltree(l.path, nlevel(l.path) - 2, nlevel(l.path))::text AS __text,\n       l.path::text AS __value\nFROM umh.location l\n  JOIN umh.topic t ON t.location_id = l.location_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\nWHERE g.data_contract_name = '_cnc'\nGROUP BY l.path\nORDER BY 1"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Right now",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "State",
+      "description": "The machine's current state. FAULT means a stopping fault is active.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "idle",
+                  "color": "text",
+                  "index": 0
+                },
+                "10": {
+                  "text": "running",
+                  "color": "green",
+                  "index": 1
+                },
+                "20": {
+                  "text": "setup",
+                  "color": "yellow",
+                  "index": 2
+                },
+                "30": {
+                  "text": "FAULT",
+                  "color": "red",
+                  "index": 3
+                },
+                "40": {
+                  "text": "stopped",
+                  "color": "text",
+                  "index": 4
+                },
+                "70": {
+                  "text": "tool change",
+                  "color": "orange",
+                  "index": 5
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT v.value_num AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = '' AND g.name = 'state'\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "OEE",
+      "description": "Availability x quality over the dashboard window. Performance is not measured (no takt time in the contract) and is taken as 100%.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH a AS (\n  SELECT avg(CASE WHEN v.value_num = 10 OR v.value_num >= 50 THEN 1.0 ELSE 0.0 END) AS avail\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name = 'state'\n    AND $__timeFilter(v.ts)\n),\nd AS (\n  SELECT g.name AS tag, max(v.value_num) - min(v.value_num) AS delta\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name IN ('good_count','scrap_count')\n    AND $__timeFilter(v.ts)\n  GROUP BY g.name\n),\nq AS (\n  SELECT CASE WHEN sum(delta) > 0\n         THEN sum(delta) FILTER (WHERE tag = 'good_count') / sum(delta) END AS qual\n  FROM d\n)\nSELECT a.avail * q.qual AS value FROM a, q",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Availability",
+      "description": "Share of samples in a producing state over the window.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT avg(CASE WHEN v.value_num = 10 OR v.value_num >= 50 THEN 1.0 ELSE 0.0 END) AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = '' AND g.name = 'state'\n  AND $__timeFilter(v.ts)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Quality",
+      "description": "good / (good + scrap) from the counter deltas over the window.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH d AS (\n  SELECT g.name AS tag, max(v.value_num) - min(v.value_num) AS delta\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name IN ('good_count','scrap_count')\n    AND $__timeFilter(v.ts)\n  GROUP BY g.name\n)\nSELECT CASE WHEN sum(delta) > 0\n       THEN sum(delta) FILTER (WHERE tag = 'good_count') / sum(delta) END AS value\nFROM d",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Active fault",
+      "description": "Latest fault_code. 102 coolant low is a warning: the machine keeps producing.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "none",
+                  "color": "green",
+                  "index": 0
+                },
+                "101": {
+                  "text": "tool break",
+                  "color": "red",
+                  "index": 1
+                },
+                "102": {
+                  "text": "coolant low",
+                  "color": "yellow",
+                  "index": 2
+                },
+                "103": {
+                  "text": "spindle overload",
+                  "color": "red",
+                  "index": 3
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT v.value_num AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = '' AND g.name = 'fault_code'\n  AND $__timeFilter(v.ts)\nORDER BY v.ts DESC\nLIMIT 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Parts",
+      "description": "Counter deltas over the window, so a restart of the simulator does not distort them.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH d AS (\n  SELECT g.name AS tag, max(v.value_num) - min(v.value_num) AS delta\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name IN ('good_count','scrap_count')\n    AND $__timeFilter(v.ts)\n  GROUP BY g.name\n)\nSELECT sum(delta) FILTER (WHERE tag = 'good_count')  AS \"good\",\n       sum(delta) FILTER (WHERE tag = 'scrap_count') AS \"scrap\"\nFROM d",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "State and faults",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "state-timeline",
+      "title": "Machine state",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "description": "Every state the machine has been in over the window. Neighbouring identical samples are merged, so a bar is one continuous state.",
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 16,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 90
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "idle": {
+                  "color": "text",
+                  "index": 0
+                },
+                "running": {
+                  "color": "green",
+                  "index": 1
+                },
+                "setup": {
+                  "color": "yellow",
+                  "index": 2
+                },
+                "FAULT": {
+                  "color": "red",
+                  "index": 3
+                },
+                "stopped": {
+                  "color": "text",
+                  "index": 4
+                },
+                "tool change": {
+                  "color": "orange",
+                  "index": 5
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "center",
+        "rowHeight": 0.9,
+        "perPage": 20,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\",\n       CASE v.value_num::int\n            WHEN 0   THEN 'idle'\n            WHEN 10  THEN 'running'\n            WHEN 20  THEN 'setup'\n            WHEN 30  THEN 'FAULT'\n            WHEN 40  THEN 'stopped'\n            WHEN 70  THEN 'tool change'\n            ELSE 'code ' || v.value_num::int::text END AS \"state\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = '' AND g.name = 'state'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Fault log",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "description": "One row per fault code change, newest first. Codes come from the CNC profile: 101 tool break, 102 coolant low (warning), 103 spindle overload.",
+      "gridPos": {
+        "x": 16,
+        "y": 6,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "code"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "time",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH f AS (\n  SELECT v.ts, v.value_num AS code,\n         lag(v.value_num) OVER (ORDER BY v.ts) AS prev\n  FROM umh.value_cnc v\n    JOIN umh.topic t ON t.topic_id = v.topic_id\n    JOIN umh.tag g ON g.tag_id = t.tag_id\n    JOIN umh.location l ON l.location_id = t.location_id\n  WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n    AND g.data_contract_name = '_cnc'\n    AND g.virtual_path = '' AND g.name = 'fault_code'\n    AND $__timeFilter(v.ts)\n)\nSELECT ts AS \"time\", code AS \"code\",\n       CASE code WHEN 101 THEN 'tool break'\n                 WHEN 102 THEN 'coolant low (warning)'\n                 WHEN 103 THEN 'spindle overload'\n                 ELSE 'unmapped code' END AS \"fault\"\nFROM f\nWHERE code <> 0 AND code IS DISTINCT FROM prev\nORDER BY ts DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Process parameters",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Diameter per part (SPC)",
+      "description": "Nominal 25.000 mm +/-0.050. The diameter walks toward the upper limit as the tool wears and steps back at a tool change; a part outside tolerance is the only source of scrap on this profile.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "pointSize": 5,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 24.93,
+            "axisSoftMax": 25.07
+          },
+          "mappings": [],
+          "unit": "lengthmm",
+          "min": 24.93,
+          "max": 25.07
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*tolerance"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    6
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS \"diameter\",\n       25.05 AS \"upper tolerance\", 24.95 AS \"lower tolerance\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = 'measurement' AND g.name = 'diameter_mm'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Spindle load, tool life, coolant level",
+      "description": "Spindle load, remaining tool life and coolant level share one axis because they share a unit. Coolant below 15% raises the 102 warning.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "pointSize": 5,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "axisSoftMax": 100
+          },
+          "mappings": [],
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\",\n       CASE WHEN g.virtual_path = '' THEN g.name\n            ELSE g.virtual_path || '.' || g.name END AS metric,\n       v.value_num AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND (g.virtual_path, g.name) IN (('spindle','load_pct'), ('tool','life_pct'), ('coolant','level_pct'))\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Spindle speed and feed rate",
+      "description": "Feed rate is on the right axis; it is mm/min, not rpm.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "pointSize": 5,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": null,
+            "axisSoftMax": null
+          },
+          "mappings": [],
+          "unit": "rotrpm"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "feed.rate_mm_min"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "suffix:mm/min"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\",\n       CASE WHEN g.virtual_path = '' THEN g.name\n            ELSE g.virtual_path || '.' || g.name END AS metric,\n       v.value_num AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND (g.virtual_path, g.name) IN (('spindle','speed_rpm'), ('feed','rate_mm_min'))\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Spindle temperature and coolant pressure",
+      "description": "Coolant pressure is on the right axis. It is nominally 4.5 bar and a far more capable process than the diameter -- deliberately, so the two have different Cpk.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "pointSize": 5,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": null,
+            "axisSoftMax": null
+          },
+          "mappings": [],
+          "unit": "celsius"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "coolant.pressure_bar"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "pressurebar"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\",\n       CASE WHEN g.virtual_path = '' THEN g.name\n            ELSE g.virtual_path || '.' || g.name END AS metric,\n       v.value_num AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND (g.virtual_path, g.name) IN (('spindle','temp_c'), ('coolant','pressure_bar'))\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Output",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Counters",
+      "description": "The raw monotonic counters. They only reset when the simulator restarts or the counter wraps, so read the slope, not the value.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "pointSize": 5,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": null,
+            "axisSoftMax": null
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\",\n       CASE WHEN g.virtual_path = '' THEN g.name\n            ELSE g.virtual_path || '.' || g.name END AS metric,\n       v.value_num AS value\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[])\n  AND g.data_contract_name = '_cnc'\n  AND (g.virtual_path, g.name) IN (('','good_count'), ('','scrap_count'), ('','part_count'))\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

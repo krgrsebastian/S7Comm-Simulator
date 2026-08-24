@@ -596,6 +596,48 @@ so rather than implying it was measured.
 `grafana/overview-milling-center.json` is the same data as three plain tables,
 if you prefer sortable columns over a wall display.
 
+## CNC drill-down
+
+`grafana/cnc-detail.json` (uid `cnc-detail`) is the level below the Andon board:
+**one** CNC in detail, picked with the `Machine` dropdown at the top.
+
+The two boards are linked both ways through Grafana **dashboard links**
+(Dashboard settings → Links), so they are navigation, not panel data links:
+
+- the Andon board carries `CNC drill-down` → `/d/cnc-detail/cnc-drill-down`
+- the drill-down carries `Back to Andon board` → `/d/andon-milling-center/andon`
+
+Both set `keepTime`, so the window you were looking at survives the jump. They
+deliberately do **not** set `includeVars`: the Andon board has no `machine`
+variable to pass, so the drill-down opens on its first CNC and you pick the one
+you want. (Making the Andon cards themselves clickable is a different job —
+Grafana's data links do not work inside the HTML panel, it would need a
+`window.open` handler in `onRender`.)
+
+What is on it:
+
+| Row | Panels |
+|---|---|
+| Right now | state, OEE, availability, quality, active fault, parts in window |
+| State and faults | state timeline, fault log |
+| Process parameters | diameter (SPC) with both tolerance lines, the three percentages, spindle speed + feed rate, spindle temperature + coolant pressure |
+| Output | the raw counters |
+
+Two things worth knowing if you edit it:
+
+- **The state timeline resolves the state name in SQL**, not through value
+  mappings. Value mappings on a *numeric* field silently miss here — Grafana
+  falls back to the threshold label and renders every state as one grey `-∞+`
+  bar. So the query returns `'running'`/`'setup'`/`'FAULT'` as text and the
+  mappings only assign colours.
+- **mm/min is not a Grafana unit.** `velocitymms` renders literally as
+  "900 velocitymms" on the axis; the feed rate uses `suffix:mm/min` instead.
+
+`grafana/andon-cnc.json` predates this and overlaps with it: it is the
+PULSE-style plant-status matrix for *several* CNCs at once, with a multi-select
+`machine` variable. Keep it if you want the matrix; `cnc-detail` is the one to
+open from the Andon board for a single machine.
+
 ### Checking a dashboard by eye
 
 Rendering a dashboard headless is the only way to catch layout and legibility
