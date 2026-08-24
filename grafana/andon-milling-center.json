@@ -1,0 +1,99 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_TIMESCALEDB",
+      "label": "TimescaleDB",
+      "description": "Historian database",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "gapit-htmlgraphics-panel",
+      "name": "HTML graphics",
+      "version": "2.2.3"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "PostgreSQL",
+      "version": "1.0.0"
+    }
+  ],
+  "title": "Andon — milling_center",
+  "uid": "andon-milling-center",
+  "tags": [
+    "andon",
+    "umh"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": {
+    "from": "now-2h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "gapit-htmlgraphics-panel",
+      "title": "",
+      "datasource": "${DS_TIMESCALEDB}",
+      "gridPos": {
+        "h": 15,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "html": "<div class=\"board\"></div>",
+        "css": "\n@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Roboto+Mono:wght@500&display=swap');\n\n:host, .board {\n  --ink:#12161C; --panel:#1A2029; --rule:#2C3542; --rule-soft:#222A34;\n  --text:#E6EAF0; --muted:#8A94A3;\n  --ok:#4FA96A; --warn:#D9A128; --heat:#FF7A2F; --stop:#E14B4B; --idle:#4A5261;\n  --cond:'Barlow Condensed','Roboto Condensed','Arial Narrow',system-ui,sans-serif;\n  --body:'Barlow',system-ui,-apple-system,sans-serif;\n  --mono:'Roboto Mono',ui-monospace,SFMono-Regular,Menlo,monospace;\n}\n* { box-sizing:border-box; margin:0; }\n.board { background:var(--ink); color:var(--text); font-family:var(--body);\n         padding:14px 16px 16px; height:100%; overflow:auto; }\n.lines { display:grid; gap:14px; align-items:start; }\n\n.line-head { border-top:2px solid var(--rule); padding:8px 0 10px; }\n.line-name { font-family:var(--cond); font-weight:700; font-size:26px;\n             letter-spacing:.06em; text-transform:uppercase; line-height:1; }\n.line-verdict { font-family:var(--body); font-size:12.5px; font-weight:500;\n                letter-spacing:.01em; margin-top:5px; color:var(--muted); }\n.line-verdict.is-stop { color:var(--stop); }\n.line-verdict.is-warn { color:var(--warn); }\n.line-verdict.is-heat { color:var(--heat); }\n.line-verdict.is-ok   { color:var(--ok); }\n\n/* the chain: a station, then the link that carries the flow downstream */\n.station { border:1px solid var(--rule-soft); border-left:3px solid var(--idle);\n           background:var(--panel); padding:9px 11px 10px; }\n.station.is-ok   { border-left-color:var(--ok); }\n.station.is-warn { border-left-color:var(--warn); }\n.station.is-heat { border-left-color:var(--heat); }\n.station.is-stop { border-left-color:var(--stop); background:#241A1D; }\n.st-top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }\n.st-name { font-family:var(--cond); font-weight:600; font-size:14px; letter-spacing:.10em;\n           text-transform:uppercase; color:var(--muted); }\n.st-state { font-family:var(--cond); font-weight:700; font-size:30px; line-height:1.05;\n            letter-spacing:.02em; margin:3px 0 1px; }\n.station.is-ok   .st-state { color:var(--ok); }\n.station.is-warn .st-state { color:var(--warn); }\n.station.is-heat .st-state { color:var(--heat); }\n.station.is-stop .st-state { color:var(--stop); }\n.station.is-idle .st-state { color:var(--muted); }\n.st-machine { font-size:11.5px; color:var(--muted); margin-bottom:7px;\n              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }\n.st-metrics { display:flex; gap:14px; border-top:1px solid var(--rule-soft); padding-top:6px; }\n.metric { display:flex; align-items:baseline; gap:5px; }\n.metric-k { font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; }\n.metric-v { font-family:var(--mono); font-size:13px; font-weight:500; }\n.metric-v.dim { color:var(--muted); }\n\n/* flow link — solid steel when parts move on, torn when they do not */\n.link { height:17px; position:relative; }\n.link::before { content:''; position:absolute; left:0; top:-1px; bottom:-1px; width:3px;\n                background:var(--ok); }\n.link.is-broken::before { background:repeating-linear-gradient(\n                to bottom, var(--stop) 0 3px, transparent 3px 7px); }\n.link-note { position:absolute; left:11px; top:50%; transform:translateY(-50%);\n             font-size:10px; letter-spacing:.06em; text-transform:uppercase;\n             color:var(--stop); font-weight:600; white-space:nowrap; }\n\n.empty { color:var(--muted); font-family:var(--body); font-size:13px; padding:20px 0; }\n",
+        "rootCSS": "",
+        "onInit": "",
+        "onRender": "\nvar STATES = {\n  0:['idle','idle'], 10:['running','ok'], 20:['setup','warn'], 30:['FAULT','stop'],\n  40:['stopped','idle'], 50:['charging','ok'], 51:['heating','ok'], 52:['soaking','ok'],\n  53:['quenching','ok'], 54:['discharging','ok'], 60:['filling','ok'], 61:['washing','ok'],\n  62:['rinsing','ok'], 63:['drying','ok'], 64:['draining','ok'], 70:['tool change','heat']\n};\nvar root = htmlNode.querySelector('.board');\nif (!root) { return; }\n\nfunction fields(series) {\n  var f = {};\n  (series.fields || []).forEach(function (fl) { f[fl.name] = fl.values.toArray ? fl.values.toArray() : fl.values; });\n  return f;\n}\nvar series = (data && data.series && data.series.length) ? data.series[0] : null;\nif (!series) { root.innerHTML = '<div class=\"empty\">No data for this time range.</div>'; return; }\nvar f = fields(series);\nvar n = (f.line || []).length;\nif (!n) { root.innerHTML = '<div class=\"empty\">No assets reported in this time range.</div>'; return; }\n\n// group rows into lines, keeping process order\nvar lines = {}, order = [];\nfor (var i = 0; i < n; i++) {\n  var ln = f.line[i];\n  if (!lines[ln]) { lines[ln] = []; order.push(ln); }\n  var code = f.state[i];\n  var s = STATES[code] || [String(code), 'idle'];\n  lines[ln].push({\n    step: f.ord[i], station: f.station[i], machine: f.machine[i],\n    label: s[0], tone: s[1], avail: f.availability[i], qual: f.quality[i]\n  });\n}\norder.forEach(function (ln) { lines[ln].sort(function (a, b) { return a.step - b.step; }); });\n\nfunction pct(v) { return (v === null || v === undefined) ? '—' : (v * 100).toFixed(0) + '%'; }\nfunction esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>]/g, function (c) {\n  return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }\n\nvar RANK = { stop: 3, warn: 2, heat: 2, idle: 1, ok: 0 };\nvar html = '<div class=\"lines\" style=\"grid-template-columns:repeat(' + order.length + ',minmax(0,1fr))\">';\n\norder.forEach(function (ln) {\n  var sts = lines[ln];\n  // the verdict names where the chain breaks — that is the two-second answer\n  var worst = sts.reduce(function (a, s) { return RANK[s.tone] > RANK[a.tone] ? s : a; }, sts[0]);\n  var verdict, vtone = worst.tone;\n  if (worst.tone === 'stop')      verdict = 'halted at ' + worst.station;\n  else if (worst.tone === 'idle') verdict = worst.label + ' at ' + worst.station;\n  else if (worst.tone === 'warn') verdict = worst.label + ' at ' + worst.station;\n  else if (worst.tone === 'heat') verdict = worst.label + ' at ' + worst.station;\n  else                            verdict = 'all three stations producing';\n\n  html += '<div class=\"line\"><div class=\"line-head\">'\n        + '<div class=\"line-name\">' + esc(ln.replace('_', ' ')) + '</div>'\n        + '<div class=\"line-verdict is-' + vtone + '\">' + esc(verdict) + '</div></div>';\n\n  sts.forEach(function (s, idx) {\n    html += '<div class=\"station is-' + s.tone + '\">'\n          + '<div class=\"st-top\"><span class=\"st-name\">' + esc(s.station) + '</span></div>'\n          + '<div class=\"st-state\">' + esc(s.label) + '</div>'\n          + '<div class=\"st-machine\">' + esc(s.machine) + '</div>'\n          + '<div class=\"st-metrics\">'\n          + '<span class=\"metric\"><span class=\"metric-k\">avail</span>'\n          + '<span class=\"metric-v' + (s.avail === null ? ' dim' : '') + '\">' + pct(s.avail) + '</span></span>'\n          + '<span class=\"metric\"><span class=\"metric-k\">quality</span>'\n          + '<span class=\"metric-v' + (s.qual === null ? ' dim' : '') + '\">' + pct(s.qual) + '</span></span>'\n          + '</div></div>';\n    if (idx < sts.length - 1) {\n      var flowing = s.tone === 'ok';\n      html += '<div class=\"link' + (flowing ? '' : ' is-broken') + '\">'\n            + (flowing ? '' : '<span class=\"link-note\">no flow</span>') + '</div>';\n    }\n  });\n  html += '</div>';\n});\nhtml += '</div>';\nroot.innerHTML = html;\n",
+        "codeData": "{}",
+        "renderOnMount": true,
+        "panelupdateOnMount": true,
+        "onInitOnResize": false,
+        "overflow": "auto",
+        "centerAlignContent": false,
+        "add100Percentage": true,
+        "SVGBaseFix": false,
+        "dynamicData": false,
+        "dynamicHtmlGraphics": false,
+        "dynamicProps": false,
+        "dynamicFieldDisplayValues": false,
+        "useGrafanaScrollbar": true,
+        "calcsMutation": "standard",
+        "importedPanelOptions": ""
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": "${DS_TIMESCALEDB}",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH base AS (SELECT 1 AS ord, 'Mill' AS station, l.location_id, l.path, g.name, v.value_num, v.ts FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name IN ('state','good_count','scrap_count') AND $__timeFilter(v.ts) UNION ALL SELECT 2 AS ord, 'Wash' AS station, l.location_id, l.path, g.name, v.value_num, v.ts FROM umh.value_washing v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE g.data_contract_name = '_washing' AND g.virtual_path = '' AND g.name IN ('state','good_count','scrap_count') AND $__timeFilter(v.ts) UNION ALL SELECT 3 AS ord, 'Harden' AS station, l.location_id, l.path, g.name, v.value_num, v.ts FROM umh.value_oven v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE g.data_contract_name = '_oven' AND g.virtual_path = '' AND g.name IN ('state','good_count','scrap_count') AND $__timeFilter(v.ts)), st AS (SELECT ord, station, location_id, path, (array_agg(value_num ORDER BY ts DESC))[1] AS state_now, avg(CASE WHEN value_num = 10 OR value_num >= 50 THEN 1.0 ELSE 0.0 END) AS availability FROM base WHERE name = 'state' GROUP BY ord, station, location_id, path), q AS (SELECT location_id, max(CASE WHEN name='good_count' THEN value_num END) - min(CASE WHEN name='good_count' THEN value_num END) AS good_d, max(CASE WHEN name='scrap_count' THEN value_num END) - min(CASE WHEN name='scrap_count' THEN value_num END) AS scrap_d FROM base WHERE name IN ('good_count','scrap_count') GROUP BY location_id) SELECT subltree(st.path, nlevel(st.path)-2, nlevel(st.path)-1)::text AS line, st.ord AS ord, st.station AS station, subltree(st.path, nlevel(st.path)-1, nlevel(st.path))::text AS machine, st.state_now AS state, st.availability AS availability, CASE WHEN coalesce(q.good_d,0) + coalesce(q.scrap_d,0) > 0 THEN q.good_d / (q.good_d + q.scrap_d) END AS quality, st.path::text AS path FROM st LEFT JOIN q ON q.location_id = st.location_id ORDER BY 1, 2",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

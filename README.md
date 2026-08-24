@@ -514,6 +514,55 @@ Grants: the historian writes into schema `umh`, so `grafana_reader` needs
 `USAGE` on that schema — the bridge's init does this, but a reader role created
 later needs it granted again, otherwise every panel returns permission denied.
 
+## Andon board — a whole area, one column per line
+
+`grafana/andon-milling-center.json` (uid `andon-milling-center`) is the
+wall-mounted view of the area: one column per production line, the line's three
+stations stacked in process order, and the flow between them drawn as a chain.
+
+```
+LINE 01                    LINE 02                  LINE 03
+all three stations         halted at Mill           tool change at Mill
+producing
+
+MILL                       MILL                     MILL
+running                    FAULT                     tool change
+hermle_c400                hermle_c400              hermle_c400
+AVAIL 100%  QUALITY 98%    AVAIL 92%  QUALITY 98%   AVAIL 100%  QUALITY 98%
+ │                         ┊ NO FLOW                ┊ NO FLOW
+WASH                       WASH                     WASH
+washing                    washing                  setup
+ │                          │                       ┊ NO FLOW
+HARDEN                     HARDEN                   HARDEN
+heating                    stopped                  heating
+```
+
+Parts run mill → wash → harden, so a stop anywhere backs up the whole line.
+That is what the layout encodes: each column is one **chain**. The accent down
+the left of the cards continues into the link between them, so a line reads as a
+single spine — and where the upstream station is not producing, the spine tears
+into red dashes labelled `NO FLOW`. It is the one place the design spends any
+boldness; everything else is hairlines and quiet type.
+
+The line header carries the answer you actually walk over for: **where the chain
+breaks**, not just that something is wrong. `halted at Mill` beats a red dot.
+
+Requires the **`gapit-htmlgraphics-panel`** plugin (tested with 2.2.3):
+
+```bash
+grafana-cli plugins install gapit-htmlgraphics-panel   # or GF_INSTALL_PLUGINS=gapit-htmlgraphics-panel
+```
+
+Its CSS is shadow-DOM scoped, so the panel's styles cannot leak into Grafana and
+Grafana's cannot leak in. Fonts are Barlow Condensed for the state words — the
+condensed placard face packs a long state name into a narrow column — with a
+`Roboto Condensed`/`Arial Narrow`/`system-ui` fallback chain, so the board still
+reads if the instance blocks webfonts. Numbers are set in a mono face so they do
+not jitter on refresh.
+
+`grafana/overview-milling-center.json` is the same data as three plain tables,
+if you prefer sortable columns over a wall display.
+
 ## Overview dashboard — a whole area
 
 `grafana/overview-milling-center.json` (uid `milling-center`) is the level above
