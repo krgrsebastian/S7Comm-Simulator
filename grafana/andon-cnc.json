@@ -17,30 +17,15 @@
   "templating": {
     "list": [
       {
-        "name": "DS",
-        "label": "Datenquelle",
-        "type": "datasource",
-        "query": "grafana-postgresql-datasource",
-        "current": {},
-        "hide": 0,
-        "refresh": 1
-      },
-      {
         "name": "machine",
         "label": "Maschine",
         "type": "query",
-        "datasource": "${DS}",
+        "datasource": "${DS_TIMESCALEDB}",
         "multi": true,
         "includeAll": true,
         "refresh": 2,
         "sort": 1,
-        "query": {
-          "refId": "machine-variable",
-          "format": "table",
-          "rawQuery": true,
-          "editorMode": "code",
-          "rawSql": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1"
-        },
+        "query": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
         "definition": "SELECT DISTINCT subltree(l.path, nlevel(l.path)-1, nlevel(l.path))::text AS __text, l.path::text AS __value FROM umh.location l JOIN umh.topic t ON t.location_id = l.location_id JOIN umh.tag g ON g.tag_id = t.tag_id WHERE g.data_contract_name = '_cnc' ORDER BY 1",
         "current": {},
         "options": []
@@ -65,7 +50,7 @@
       "id": 1,
       "type": "stat",
       "title": "$machine",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -142,7 +127,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -172,7 +157,7 @@
       "id": 2,
       "type": "stat",
       "title": "Status",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
         "w": 5,
@@ -249,7 +234,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -262,7 +247,7 @@
       "id": 3,
       "type": "stat",
       "title": "Störung",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
         "w": 5,
@@ -329,7 +314,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -342,7 +327,7 @@
       "id": 4,
       "type": "stat",
       "title": "Gut",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
         "w": 3,
@@ -383,7 +368,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -396,7 +381,7 @@
       "id": 5,
       "type": "stat",
       "title": "Ausschuss",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
         "w": 3,
@@ -437,7 +422,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -450,7 +435,7 @@
       "id": 6,
       "type": "gauge",
       "title": "Werkzeug",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -497,7 +482,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -510,7 +495,7 @@
       "id": 7,
       "type": "stat",
       "title": "Spindellast",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -556,7 +541,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -569,7 +554,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "Durchmesser je Teil (SPC) — 25,000 ± 0,050 mm",
-      "datasource": "${DS}",
+      "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -624,7 +609,7 @@
       },
       "targets": [
         {
-          "datasource": "${DS}",
+          "datasource": "${DS_TIMESCALEDB}",
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
@@ -632,6 +617,30 @@
           "refId": "A"
         }
       ]
+    }
+  ],
+  "__inputs": [
+    {
+      "name": "DS_TIMESCALEDB",
+      "label": "TimescaleDB",
+      "description": "Historian database",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "PostgreSQL",
+      "version": "1.0.0"
     }
   ]
 }

@@ -340,15 +340,25 @@ it.
 
 ## Andon dashboard
 
-`grafana/andon-cnc.json` — import it, pick your historian in **Datenquelle**,
-then pick machines in **Maschine**; the board grows a tile and a detail row per
-selection.
+`grafana/andon-cnc.json` — import it, choose your historian when the import
+dialog asks for **TimescaleDB**, then pick machines in **Maschine**; the board
+grows a tile and a detail row per selection.
 
-The datasource is a `${DS}` **variable**, not a hardcoded uid — on every panel
-*and* every target. That matters: a target's datasource overrides its panel's, so
-changing the datasource in the panel header alone leaves the query pointing at
-the old uid and it silently runs against the wrong database. With `${DS}` there
-is one place to set it.
+The file is in Grafana's **export-for-sharing** format: it declares the
+datasource as an `__inputs` entry (`DS_TIMESCALEDB`) and every panel, target and
+variable references `${DS_TIMESCALEDB}`. On import Grafana prompts for the
+datasource once and substitutes the real uid throughout, so nothing is left
+pointing at a foreign uid. Two earlier shapes did not survive the import dialog:
+
+- A hardcoded uid per panel *and* per target. A target's datasource overrides its
+  panel's, so changing it in the panel header left the query bound to the old uid
+  and it silently ran elsewhere.
+- A `${DS}` datasource *template variable* with an empty `current` — the import
+  dialog does not prompt for it, so it stays unselected.
+
+The `machine` variable's `query` is a plain **string**. Written as the object
+form (`{rawSql: …}`) it survives an API POST but the import path stringifies it,
+and the query shows up as `[object Object]`.
 
 No query contains a newline or an SQL comment, deliberately: some Grafana
 versions collapse a rawSql into one line, which turns a leading `--` comment into
