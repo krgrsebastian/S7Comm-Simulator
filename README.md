@@ -375,6 +375,23 @@ Werkzeug   green         green           RED
 Kühlmittel green         green          yellow
 ```
 
+**Every cell states its own condition in words**, with colour as reinforcement,
+not as the only carrier of meaning. A colour-only tile works for a binary row;
+for a multi-valued state like `state` it does not — you cannot tell "Rüsten"
+from "gestoppt" from "no data" by shade. The value is encoded as
+`dimension*100 + condition` and a value-mapping table gives each code its text
+and colour, so a tile reads `Betrieb läuft`, `Betrieb STÖRUNG`, `Werkzeug
+verbraucht`.
+
+Grey means exactly one thing — `gestoppt`, spelled out. Genuinely missing data
+renders transparent and says `keine Daten`. Those must never share a colour.
+
+The timer is labelled `Status seit` and shows how long the current condition has
+lasted (seconds since the last `fault_active` transition, `clocks` unit so it
+reads `02m` in any language). That wording is true whether the machine is
+running or faulted; `ohne Störung seit` was wrong on a faulted machine, which
+the render made obvious.
+
 The rows are the dimensions the CNC contract actually carries — no placeholder
 cells:
 

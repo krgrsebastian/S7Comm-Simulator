@@ -62,7 +62,7 @@
       "maxPerRow": 3,
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "clocks",
           "decimals": 0,
           "mappings": [],
           "thresholds": {
@@ -81,15 +81,16 @@
         "colorMode": "none",
         "graphMode": "none",
         "justifyMode": "center",
-        "textMode": "value",
+        "textMode": "value_and_name",
         "text": {
-          "valueSize": 34
+          "valueSize": 30,
+          "titleSize": 14
         },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^value$/",
+          "fields": "",
           "values": false
         }
       },
@@ -99,7 +100,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH f AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_active' AND $__timeFilter(v.ts)) SELECT now() AS \"time\", extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS value FROM f WHERE prev IS NOT NULL AND value_num <> prev",
+          "rawSql": "WITH f AS (SELECT v.ts, v.value_num, lag(v.value_num) OVER (ORDER BY v.ts) AS prev FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND g.virtual_path = '' AND g.name = 'fault_active' AND $__timeFilter(v.ts)) SELECT extract(epoch FROM now() - coalesce(max(ts), $__timeFrom()))::int AS \"Status seit\" FROM f WHERE prev IS NOT NULL AND value_num <> prev",
           "refId": "A"
         }
       ]
@@ -110,7 +111,7 @@
       "title": "",
       "datasource": "${DS_TIMESCALEDB}",
       "gridPos": {
-        "h": 10,
+        "h": 12,
         "w": 8,
         "x": 0,
         "y": 4
@@ -120,30 +121,125 @@
       "maxPerRow": 3,
       "fieldConfig": {
         "defaults": {
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "100": {
+                  "text": "läuft",
+                  "color": "green",
+                  "index": 0
+                },
+                "101": {
+                  "text": "STÖRUNG",
+                  "color": "red",
+                  "index": 1
+                },
+                "102": {
+                  "text": "Werkzeugwechsel",
+                  "color": "orange",
+                  "index": 2
+                },
+                "103": {
+                  "text": "Rüsten",
+                  "color": "#EAB839",
+                  "index": 3
+                },
+                "104": {
+                  "text": "gestoppt",
+                  "color": "#4A4A50",
+                  "index": 4
+                },
+                "109": {
+                  "text": "keine Daten",
+                  "color": "transparent",
+                  "index": 5
+                },
+                "200": {
+                  "text": "keine",
+                  "color": "green",
+                  "index": 6
+                },
+                "201": {
+                  "text": "Kühlmittel niedrig",
+                  "color": "#EAB839",
+                  "index": 7
+                },
+                "202": {
+                  "text": "Werkzeugbruch",
+                  "color": "red",
+                  "index": 8
+                },
+                "203": {
+                  "text": "Spindel-Überlast",
+                  "color": "red",
+                  "index": 9
+                },
+                "209": {
+                  "text": "keine Daten",
+                  "color": "transparent",
+                  "index": 10
+                },
+                "300": {
+                  "text": "in Toleranz",
+                  "color": "green",
+                  "index": 11
+                },
+                "301": {
+                  "text": "außer Toleranz",
+                  "color": "red",
+                  "index": 12
+                },
+                "309": {
+                  "text": "keine Daten",
+                  "color": "transparent",
+                  "index": 13
+                },
+                "400": {
+                  "text": "ausreichend",
+                  "color": "green",
+                  "index": 14
+                },
+                "401": {
+                  "text": "bald wechseln",
+                  "color": "#EAB839",
+                  "index": 15
+                },
+                "402": {
+                  "text": "verbraucht",
+                  "color": "red",
+                  "index": 16
+                },
+                "409": {
+                  "text": "keine Daten",
+                  "color": "transparent",
+                  "index": 17
+                },
+                "500": {
+                  "text": "ausreichend",
+                  "color": "green",
+                  "index": 18
+                },
+                "501": {
+                  "text": "niedrig",
+                  "color": "#EAB839",
+                  "index": 19
+                },
+                "509": {
+                  "text": "keine Daten",
+                  "color": "transparent",
+                  "index": 20
+                }
+              }
+            }
+          ],
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 1
-              },
-              {
-                "color": "orange",
-                "value": 2
-              },
-              {
-                "color": "red",
-                "value": 3
-              },
-              {
                 "color": "transparent",
-                "value": 4
+                "value": null
               }
             ]
           }
@@ -155,9 +251,10 @@
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "horizontal",
-        "textMode": "name",
+        "textMode": "value_and_name",
         "text": {
-          "titleSize": 18
+          "valueSize": 22,
+          "titleSize": 13
         },
         "reduceOptions": {
           "calcs": [],
@@ -171,7 +268,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1) SELECT metric, value FROM (SELECT 1 AS ord, 'Betrieb' AS metric, CASE WHEN st=30 THEN 3 WHEN st=70 THEN 2 WHEN st=10 THEN 0 ELSE 4 END AS value FROM s UNION ALL SELECT 2, 'Störung', CASE WHEN fc IN (101,103) THEN 3 WHEN fc=102 THEN 1 WHEN fc IS NULL THEN 4 ELSE 0 END FROM s UNION ALL SELECT 3, 'Qualität', CASE WHEN dia IS NULL THEN 4 WHEN abs(dia-25.0)>0.05 THEN 3 ELSE 0 END FROM s UNION ALL SELECT 4, 'Werkzeug', CASE WHEN tl IS NULL THEN 4 WHEN tl<15 THEN 3 WHEN tl<30 THEN 1 ELSE 0 END FROM s UNION ALL SELECT 5, 'Kühlmittel', CASE WHEN cl IS NULL THEN 4 WHEN cl<=20 THEN 1 ELSE 0 END FROM s) x ORDER BY x.ord",
+          "rawSql": "WITH latest AS (SELECT coalesce(nullif(g.virtual_path,'')||'.','')||g.name AS k, v.value_num, row_number() OVER (PARTITION BY g.virtual_path, g.name ORDER BY v.ts DESC) AS rn FROM umh.value_cnc v JOIN umh.topic t ON t.topic_id = v.topic_id JOIN umh.tag g ON g.tag_id = t.tag_id JOIN umh.location l ON l.location_id = t.location_id WHERE l.path = ANY(ARRAY[${machine:sqlstring}]::ltree[]) AND g.data_contract_name = '_cnc' AND $__timeFilter(v.ts)), s AS (SELECT max(CASE WHEN k='state' THEN value_num END) AS st, max(CASE WHEN k='fault_code' THEN value_num END) AS fc, max(CASE WHEN k='measurement.diameter_mm' THEN value_num END) AS dia, max(CASE WHEN k='tool.life_pct' THEN value_num END) AS tl, max(CASE WHEN k='coolant.level_pct' THEN value_num END) AS cl FROM latest WHERE rn = 1) SELECT metric, value FROM (SELECT 1 AS ord, 'Betrieb' AS metric, CASE WHEN st IS NULL THEN 109 WHEN st=10 THEN 100 WHEN st=30 THEN 101 WHEN st=70 THEN 102 WHEN st=20 THEN 103 WHEN st IN (0,40) THEN 104 ELSE 109 END AS value FROM s UNION ALL SELECT 2, 'Störung', CASE WHEN fc IS NULL THEN 209 WHEN fc=0 THEN 200 WHEN fc=102 THEN 201 WHEN fc=101 THEN 202 WHEN fc=103 THEN 203 ELSE 209 END FROM s UNION ALL SELECT 3, 'Qualität', CASE WHEN dia IS NULL THEN 309 WHEN abs(dia-25.0)>0.05 THEN 301 ELSE 300 END FROM s UNION ALL SELECT 4, 'Werkzeug', CASE WHEN tl IS NULL THEN 409 WHEN tl<15 THEN 402 WHEN tl<30 THEN 401 ELSE 400 END FROM s UNION ALL SELECT 5, 'Kühlmittel', CASE WHEN cl IS NULL THEN 509 WHEN cl<=20 THEN 501 ELSE 500 END FROM s) x ORDER BY x.ord",
           "refId": "A"
         }
       ]
@@ -185,7 +282,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 17
       },
       "panels": []
     },
@@ -198,7 +295,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 16
+        "y": 18
       },
       "fieldConfig": {
         "defaults": {
@@ -291,7 +388,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 23
       },
       "repeat": "machine",
       "panels": []
@@ -305,7 +402,7 @@
         "h": 4,
         "w": 5,
         "x": 0,
-        "y": 22
+        "y": 24
       },
       "fieldConfig": {
         "defaults": {
@@ -395,7 +492,7 @@
         "h": 4,
         "w": 5,
         "x": 5,
-        "y": 22
+        "y": 24
       },
       "fieldConfig": {
         "defaults": {
@@ -475,7 +572,7 @@
         "h": 4,
         "w": 3,
         "x": 10,
-        "y": 22
+        "y": 24
       },
       "fieldConfig": {
         "defaults": {
@@ -529,7 +626,7 @@
         "h": 4,
         "w": 3,
         "x": 13,
-        "y": 22
+        "y": 24
       },
       "fieldConfig": {
         "defaults": {
@@ -583,7 +680,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 22
+        "y": 24
       },
       "fieldConfig": {
         "defaults": {
@@ -643,7 +740,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 22
+        "y": 24
       },
       "fieldConfig": {
         "defaults": {
@@ -702,7 +799,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 28
       },
       "fieldConfig": {
         "defaults": {
