@@ -521,21 +521,17 @@ wall-mounted view of the area: one column per production line, the line's three
 stations stacked in process order, and the flow between them drawn as a chain.
 
 ```
-line 01                        line 02                       line 03
-all stations producing         halted at Mill                tool change at Mill
-· slowest Harden 90%           · slowest Harden 66%          · slowest Wash 73%
+line 01                          line 02                          line 03
 
-MILL                           MILL                          MILL
- (95%)  running                 (72%)  FAULT                  (86%)  tool change
-  OEE   hermle_c400              OEE   hermle_c400             OEE   hermle_c400
-        AVAIL 100% QUALITY 95%         AVAIL 87% QUALITY 83%         AVAIL 100% QUALITY 86%
-        PERF 100%                      PERF 100%                     PERF 100%
- │                             ┊ NO FLOW                     ┊ NO FLOW
-WASH                           WASH                          WASH
- (95%)  washing                 (85%)  washing                (73%)  setup
- │                              │                            ┊ NO FLOW
-HARDEN                         HARDEN                        HARDEN
- (90%)  heating                 (66%)  stopped                (88%)  heating
+MILL            hermle_c400      MILL            hermle_c400      MILL            hermle_c400
+● running          (95%) OEE     ● FAULT            (48%) OEE     ● tool change      (87%) OEE
+AVAIL 97% QUALITY 98% PERF 100%  AVAIL 50% QUALITY 97% PERF 100%  AVAIL 88% QUALITY 98% PERF 100%
+ │                               ┊ NO FLOW                        ┊ NO FLOW
+WASH      ecoclean_ecocwave      WASH      ecoclean_ecocwave      WASH      ecoclean_ecocwave
+● washing          (96%) OEE     ● washing          (92%) OEE     ● setup            (59%) OEE
+ │                                │                               ┊ NO FLOW
+HARDEN                 oven      HARDEN                 oven      HARDEN                 oven
+● heating          (98%) OEE     ● stopped          (51%) OEE     ● quenching        (91%) OEE
 ```
 
 Parts run mill → wash → harden, so a stop anywhere backs up the whole line.
@@ -545,8 +541,18 @@ single spine — and where the upstream station is not producing, the spine tear
 into red dashes labelled `NO FLOW`. It is the one place the design spends any
 boldness; everything else is hairlines and quiet type.
 
-The line header carries the answer you actually walk over for: **where the chain
-breaks**, not just that something is wrong. `halted at Mill` beats a red dot.
+**The card answers one question: what is this machine doing right now.** The
+state is the largest thing on it, in its own colour, with a status dot ahead of
+it; a machine in FAULT additionally gets a red-washed card and a heavier red
+band, because "is anything broken" has to be answerable from across the room
+without reading a word.
+
+OEE sits at the far end of the same row, small, **monochrome**, and labelled —
+something you read on the second look, with AVAIL / QUALITY / PERF underneath it.
+Monochrome is the point: while the ring carried the usual green/amber/red
+thresholds, a *running* machine with a poor shift showed a green state word next
+to a red ring, so red meant two different things on one card. Colour on this
+board belongs to the machine state and to nothing else.
 
 Requires the **`gapit-htmlgraphics-panel`** plugin (tested with 2.2.3):
 
