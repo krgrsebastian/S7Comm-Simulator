@@ -521,20 +521,21 @@ wall-mounted view of the area: one column per production line, the line's three
 stations stacked in process order, and the flow between them drawn as a chain.
 
 ```
-LINE 01                    LINE 02                  LINE 03
-all three stations         halted at Mill           tool change at Mill
-producing
+line 01                        line 02                       line 03
+all stations producing         halted at Mill                tool change at Mill
+· slowest Harden 90%           · slowest Harden 66%          · slowest Wash 73%
 
-MILL                       MILL                     MILL
-running                    FAULT                     tool change
-hermle_c400                hermle_c400              hermle_c400
-AVAIL 100%  QUALITY 98%    AVAIL 92%  QUALITY 98%   AVAIL 100%  QUALITY 98%
- │                         ┊ NO FLOW                ┊ NO FLOW
-WASH                       WASH                     WASH
-washing                    washing                  setup
- │                          │                       ┊ NO FLOW
-HARDEN                     HARDEN                   HARDEN
-heating                    stopped                  heating
+MILL                           MILL                          MILL
+ (95%)  running                 (72%)  FAULT                  (86%)  tool change
+  OEE   hermle_c400              OEE   hermle_c400             OEE   hermle_c400
+        AVAIL 100% QUALITY 95%         AVAIL 87% QUALITY 83%         AVAIL 100% QUALITY 86%
+        PERF 100%                      PERF 100%                     PERF 100%
+ │                             ┊ NO FLOW                     ┊ NO FLOW
+WASH                           WASH                          WASH
+ (95%)  washing                 (85%)  washing                (73%)  setup
+ │                              │                            ┊ NO FLOW
+HARDEN                         HARDEN                        HARDEN
+ (90%)  heating                 (66%)  stopped                (88%)  heating
 ```
 
 Parts run mill → wash → harden, so a stop anywhere backs up the whole line.
@@ -554,14 +555,69 @@ grafana-cli plugins install gapit-htmlgraphics-panel   # or GF_INSTALL_PLUGINS=g
 ```
 
 Its CSS is shadow-DOM scoped, so the panel's styles cannot leak into Grafana and
-Grafana's cannot leak in. Fonts are Barlow Condensed for the state words — the
-condensed placard face packs a long state name into a narrow column — with a
-`Roboto Condensed`/`Arial Narrow`/`system-ui` fallback chain, so the board still
-reads if the instance blocks webfonts. Numbers are set in a mono face so they do
-not jitter on refresh.
+Grafana's cannot leak in.
+
+Every colour, font, radius and spacing comes from **Grafana's own theme**, read
+in `onInit` and written onto the board as CSS custom properties, so the board
+follows the instance's light/dark setting instead of carrying a private palette.
+
+Three things cost time here and are worth knowing:
+
+- **The plugin hands the script the v1 theme** (`config.theme`), *not*
+  `GrafanaTheme2`. So the paths are `colors.panelBg`, `colors.border1`,
+  `colors.text`, `palette.greenBase`, `typography.fontFamily.sansSerif`,
+  `border.radius.sm`, `spacing.md` — and `spacing` is an **object**, not the
+  `theme.spacing(n)` function. GrafanaTheme2 paths do not throw, they just
+  resolve to `undefined` and fall through to the fallbacks: the board then looks
+  correct in the dark theme (where the fallbacks live) and stays stubbornly dark
+  in the light one. If in doubt, dump the object from inside the panel rather
+  than guessing the shape.
+- **The OEE donut is a `conic-gradient` with a `::after` cut-out**, and that
+  pseudo-element comes after the value span in DOM order — so with both
+  positioned and no `z-index`, the cut-out paints over the number and the ring
+  renders empty. `.ring-val` needs `z-index: 1`.
+- **Set the theme variables in `onInit`, not `onRender`.** `onRender` runs on
+  every data update, and mutating the root element's inline style there is
+  layout work on every refresh for values that never change.
+
+The OEE ring is the one number that carries the label with it (`OEE` under the
+ring), because the components beside it — AVAIL, QUALITY, PERF — are already
+labelled and an unlabelled ring in the middle would be the odd one out.
+Performance is fixed at 100 %: there is no takt time in the contract to measure
+against, so OEE here is availability × quality, and `PERF 100%` is greyed to say
+so rather than implying it was measured.
 
 `grafana/overview-milling-center.json` is the same data as three plain tables,
 if you prefer sortable columns over a wall display.
+
+### Checking a dashboard by eye
+
+Rendering a dashboard headless is the only way to catch layout and legibility
+defects, but the `grafana-image-renderer` container is a poor witness on a
+loaded machine: its Chromium tab gets SIGKILLed (`Inspector.targetCrashed`,
+`errorCode: 9`) and the symptom is a 60-second `rendering.serverTimeout` or a
+blank PNG — which reads exactly like a broken panel. Raising the timeout does
+not help, and neither does `--shm-size`; the tab is out of memory, not slow.
+Confirm it by watching the container: 2 % CPU and ~8 MiB during a "render" means
+no browser is running at all.
+
+Faster and far more reliable: give the *test* instance anonymous access and
+screenshot it with a browser on the host, which has the whole machine's memory.
+
+```bash
+docker exec -u 0 <grafana> sh -c \
+  'printf "\n[auth.anonymous]\nenabled = true\norg_role = Admin\n" >> /etc/grafana/grafana.ini'
+docker restart <grafana>
+
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless=new --disable-gpu --hide-scrollbars --user-data-dir=/tmp/prof \
+  --window-size=1400,560 --virtual-time-budget=20000 --screenshot=board.png \
+  "http://localhost:3000/d-solo/<uid>/x?orgId=1&panelId=1&from=now-2h&to=now&theme=light"
+```
+
+Render both `theme=light` and `theme=dark` — a panel that reads its own theme is
+exactly the kind that looks fine in one and unreadable in the other. Only ever
+enable anonymous access on a throwaway rig, and tear the rig down afterwards.
 
 ## Overview dashboard — a whole area
 
