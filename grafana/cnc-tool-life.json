@@ -1,0 +1,303 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_TIMESCALEDB",
+      "label": "TimescaleDB",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [],
+  "uid": "cnc-tool-life",
+  "title": "CNC — tool life (alert source)",
+  "description": "One panel per line with the machine hard-coded, so each panel can be turned into an alert rule. Alert rules cannot expand dashboard variables, which is why there is no machine picker here.",
+  "tags": [
+    "cnc",
+    "milling_center",
+    "alerting"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "links": [],
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "line 01 · hermle_c400 — tool life",
+      "description": "Remaining tool life on the line 01 milling centre. 100% is a fresh tool; it steps back to 100% at every tool change, so an alert on this fires once per tool rather than continuously.\n\nTo build the alert from this panel: New alert rule -> the query below is A -> add Reduce(Last, A) as B -> add Threshold(B is below 10) as C. Set the rule's evaluation window to something short (now-15m to now) and give it a pending period of a minute or two so a single missed sample cannot fire it. Decide the No data case deliberately: an idle or disconnected machine returns no rows, and 'No data = Alerting' would then page for a machine nobody is using.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "gradientMode": "scheme",
+            "lineInterpolation": "linear",
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 10
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS \"tool life\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = 'umh-factory.cologne.milling_center.line_01.hermle_c400'::ltree\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = 'tool'\n  AND g.name = 'life_pct'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "line 02 · hermle_c400 — tool life",
+      "description": "Remaining tool life on the line 02 milling centre. 100% is a fresh tool; it steps back to 100% at every tool change, so an alert on this fires once per tool rather than continuously.\n\nTo build the alert from this panel: New alert rule -> the query below is A -> add Reduce(Last, A) as B -> add Threshold(B is below 10) as C. Set the rule's evaluation window to something short (now-15m to now) and give it a pending period of a minute or two so a single missed sample cannot fire it. Decide the No data case deliberately: an idle or disconnected machine returns no rows, and 'No data = Alerting' would then page for a machine nobody is using.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "gradientMode": "scheme",
+            "lineInterpolation": "linear",
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 10
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS \"tool life\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = 'umh-factory.cologne.milling_center.line_02.hermle_c400'::ltree\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = 'tool'\n  AND g.name = 'life_pct'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "line 03 · hermle_c400 — tool life",
+      "description": "Remaining tool life on the line 03 milling centre. 100% is a fresh tool; it steps back to 100% at every tool change, so an alert on this fires once per tool rather than continuously.\n\nTo build the alert from this panel: New alert rule -> the query below is A -> add Reduce(Last, A) as B -> add Threshold(B is below 10) as C. Set the rule's evaluation window to something short (now-15m to now) and give it a pending period of a minute or two so a single missed sample cannot fire it. Decide the No data case deliberately: an idle or disconnected machine returns no rows, and 'No data = Alerting' would then page for a machine nobody is using.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_TIMESCALEDB}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "gradientMode": "scheme",
+            "lineInterpolation": "linear",
+            "axisPlacement": "auto",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 10
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ]
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_TIMESCALEDB}"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT v.ts AS \"time\", v.value_num AS \"tool life\"\nFROM umh.value_cnc v\n  JOIN umh.topic t ON t.topic_id = v.topic_id\n  JOIN umh.tag g ON g.tag_id = t.tag_id\n  JOIN umh.location l ON l.location_id = t.location_id\nWHERE l.path = 'umh-factory.cologne.milling_center.line_03.hermle_c400'::ltree\n  AND g.data_contract_name = '_cnc'\n  AND g.virtual_path = 'tool'\n  AND g.name = 'life_pct'\n  AND $__timeFilter(v.ts)\nORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

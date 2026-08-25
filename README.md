@@ -659,6 +659,50 @@ Two notes if you change the drawing:
   the box border. The boxes are sized for the names in use and `clip()` is the
   fallback; the full name stays in the group's tooltip either way.
 
+## Tool life — the alert source
+
+`grafana/cnc-tool-life.json` (uid `cnc-tool-life`) is one panel per line with
+the machine **hard-coded**, because a Grafana alert rule cannot expand a
+dashboard variable. Each panel is meant to become an alert rule.
+
+The query is deliberately plain — no variables, no helper functions:
+
+```sql
+SELECT v.ts AS "time", v.value_num AS "tool life"
+FROM umh.value_cnc v
+  JOIN umh.topic t ON t.topic_id = v.topic_id
+  JOIN umh.tag g ON g.tag_id = t.tag_id
+  JOIN umh.location l ON l.location_id = t.location_id
+WHERE l.path = 'umh-factory.cologne.milling_center.line_01.hermle_c400'::ltree
+  AND g.data_contract_name = '_cnc'
+  AND g.virtual_path = 'tool'
+  AND g.name = 'life_pct'
+  AND $__timeFilter(v.ts)
+ORDER BY 1
+```
+
+`$__timeFilter` is fine in an alert rule — macros are expanded, `$variables` are
+not. `get_topic_id()` is avoided on purpose: it normalises the hyphen in
+`umh-factory` through `to_ltree_path()` while the stored path keeps it, so it
+returns NULL on this instance.
+
+**Building the rule from a panel**: New alert rule → the panel query is A → add
+`Reduce(Last, A)` as B → add `Threshold(B is below 10)` as C. Then:
+
+- **Evaluation window**: something short, `now-15m` to `now`. The query is a
+  time series and B takes the newest point; a long window only costs scan time.
+- **Pending period**: a minute or two, so one odd sample cannot fire it.
+- **No data**: decide it deliberately. A machine that is idle or disconnected
+  returns no rows, and `No data = Alerting` would then page for a machine nobody
+  is using. `No data = OK` hides a dead connection instead — which of the two is
+  wrong for you depends on whether something else already watches the link.
+- The alert **resolves by itself** at the next tool change, because tool life
+  steps back to 100 %. It fires once per tool, which is the point: it is a
+  "change the tool soon" warning, not a fault.
+
+The panels colour the line by threshold (`gradientMode: scheme`), so the stretch
+below the limit is red on the chart and the legend carries `Last` and `Min`.
+
 ## Navigation
 
 Links go one way. Both overviews reach the two CNC boards, and those two reach
